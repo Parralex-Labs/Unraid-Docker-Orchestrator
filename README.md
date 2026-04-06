@@ -1,4 +1,4 @@
-# 🛡️ Unraid Docker Orchestrator (The Array Warden)
+# 🛡️ Unraid Docker Orchestrator
 
 ![Logo Parralex-Labs](https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/blob/main/UDO.png)
 
