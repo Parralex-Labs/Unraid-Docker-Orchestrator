@@ -1,6 +1,6 @@
 # 🛡️ Unraid Docker Orchestrator (The Array Warden)
 
-![Logo Parralex-Labs](https://votre-lien-image-ici.png)
+![Logo Parralex-Labs](https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/blob/main/UDO.png)
 
 [![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
 [![Platform: Unraid](https://img.shields.io/badge/Platform-Unraid-orange.svg)](https://unraid.net/)
