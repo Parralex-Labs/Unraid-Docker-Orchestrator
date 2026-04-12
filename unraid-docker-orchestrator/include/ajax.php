@@ -1158,31 +1158,56 @@ function installScript(array $data): array {
   file_put_contents($scriptFile, $script);
   chmod($scriptFile, 0755);
 
-  // Fréquence : lire la valeur déjà configurée dans config.json
-  // pour ne pas écraser un cron que l'utilisateur a déjà défini
-  $existingCfg = loadConfig()['config'] ?? [];
-  $existingCron = $existingCfg['cron'][$mode] ?? '';
+  // Fréquence : lire depuis schedule.json (source de vérité User Scripts)
+  // en priorité, puis fallback sur config.json
+  // Cela garantit que réinstaller un script ne perd jamais le cron configuré
+  $scheduleJson = '/boot/config/plugins/user.scripts/schedule.json';
+  $existingFrequency = '';
+  $existingCustom    = '';
+
+  if (file_exists($scheduleJson)) {
+    $sched = json_decode(file_get_contents($scheduleJson), true) ?: [];
+    // Chercher l'entrée correspondant à ce script par chemin ou par ID
+    $scriptFile2 = "/boot/config/plugins/user.scripts/scripts/{$name}/script";
+    foreach ($sched as $path => $entry) {
+      if ($path === $scriptFile2 || ($entry['id'] ?? '') === 'schedule' . str_replace([' ','.'], [''  ,'-'], $name)) {
+        $existingFrequency = $entry['frequency'] ?? '';
+        $existingCustom    = $entry['custom']    ?? '';
+        break;
+      }
+    }
+  }
+
+  // Fallback sur config.json si schedule.json n'a pas d'entrée
+  if (!$existingFrequency) {
+    $existingCfg  = loadConfig()['config'] ?? [];
+    $existingCron = $existingCfg['cron'][$mode] ?? '';
+    $scheduleMap2 = [
+      'At Startup of Array'  => 'start',
+      'At Stopping of Array' => 'stop',
+    ];
+    if ($existingCron && !isset($scheduleMap2[$existingCron])) {
+      $existingFrequency = 'custom';
+      $existingCustom    = $existingCron;
+    } elseif ($existingCron && isset($scheduleMap2[$existingCron])) {
+      $existingFrequency = $scheduleMap2[$existingCron];
+    }
+  }
+
+  // Valeurs par défaut si rien n'est trouvé nulle part
+  if (!$existingFrequency) {
+    $freqMap   = ['start' => 'start', 'stop' => 'stop', 'update' => 'disabled'];
+    $existingFrequency = $freqMap[$mode] ?? 'disabled';
+  }
+
+  $frequency = $existingFrequency;
+  $customVal = $existingCustom;
 
   $scheduleMap = [
     'At Startup of Array'  => 'start',
     'At Stopping of Array' => 'stop',
     ''                     => 'disabled',
   ];
-
-  if ($existingCron && !isset($scheduleMap[$existingCron])) {
-    // Expression cron custom déjà enregistrée (ex: '0 3 * * *')
-    $frequency = 'custom';
-    $customVal = $existingCron;
-  } elseif ($existingCron && isset($scheduleMap[$existingCron])) {
-    // At Startup / At Stopping
-    $frequency = $scheduleMap[$existingCron];
-    $customVal = '';
-  } else {
-    // Aucun cron configuré — valeurs par défaut selon le mode
-    $freqMap   = ['start' => 'start', 'stop' => 'stop', 'update' => 'disabled'];
-    $frequency = $freqMap[$mode] ?? 'disabled';
-    $customVal = '';
-  }
 
   file_put_contents("{$dir}/name",        $name);
   file_put_contents("{$dir}/description", "Unraid Docker Orchestrator — {$mode}");
