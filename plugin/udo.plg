@@ -1,9 +1,9 @@
-<?xml version='1.0' standalone='yes'?>
+<?xml version="1.0" standalone="yes"?>
 <!DOCTYPE PLUGIN [
 <!ENTITY name         "unraid-docker-orchestrator">
 <!ENTITY author       "Parralex-Labs">
 <!ENTITY version      "2026.04.12">
-<!ENTITY md5          "abc123test456">
+<!ENTITY md5          "c99f759366c8e851da5cf20d9ecb1390">
 <!ENTITY github       "Parralex-Labs/Unraid-Docker-Orchestrator">
 <!ENTITY pluginURL    "https://raw.githubusercontent.com/&github;/main/plugin/udo.plg">
 <!ENTITY pluginpkg    "&name;-&version;-x86_64-1.txz">
@@ -23,11 +23,6 @@
 - See https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/releases
 </CHANGES>
 
-<FILE Run="/bin/bash">
-<INLINE>
-rm -f $(ls /boot/config/plugins/&name;/&name;*.txz 2>/dev/null | grep -v '&version;')
-</INLINE>
-</FILE>
 
 <FILE Name="/boot/config/plugins/&name;/&name;-&version;-x86_64-1.txz" Run="upgradepkg --install-new">
 <URL>https://raw.githubusercontent.com/&github;/main/archive/&pluginpkg;</URL>
