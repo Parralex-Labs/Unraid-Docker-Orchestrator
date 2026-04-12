@@ -47,8 +47,8 @@ Le script communique directement avec l'OS Unraid pour fournir un feedback en te
 
 ## 📖 Documentation
 Pour une prise en main complète du plugin, consultez les guides suivants :
-* 📘 [**Guide Utilisateur**](Manual/udo-user-guide.md)
-* 🛠️ [**Manuel du Développeur**](Manual/udo-developer-manual.md)
+* 📘 [**Guide Utilisateur**](Docs/udo-user-guide.md)
+* 🛠️ [**Manuel du Développeur**](Docs/udo-developer-manual.md)
 
 ---
 
