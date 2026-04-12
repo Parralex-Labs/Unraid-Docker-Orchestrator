@@ -57,7 +57,6 @@ var TRANSLATIONS = {
     hc_comment_none:  'Aucun test — attente running',
     placeholder_check_cmd: 'ex: redis-cli ping | grep -q PONG',
     btn_copy_script:       'Copier',
-    label_dry_run:         '🔍 Dry-run — simuler sans modifier (pull pour détecter, pas de stop/rm/run)',
     js_copy_ok:            '✓ Copié',
     js_update_prune: 'Nettoyage des images obsolètes...',
     js_script_boot_delay_comment: 'Délai en secondes avant de démarrer les conteneurs',
@@ -621,7 +620,6 @@ var TRANSLATIONS = {
     js_pool_empty: "No containers in pool",
     js_unclassified: "Unclassified",
     btn_copy_script: "Copy",
-    label_dry_run:         '🔍 Dry-run — simulate without modifying (pull to detect, no stop/rm/run)',
     section_config: "Configuration",
     js_appfeed_search: "Searching local AppFeed...",
     tab_start: "🚀 Start",
@@ -1083,7 +1081,6 @@ var TRANSLATIONS = {
     js_pool_empty: "Sin contenedores en el pool",
     js_unclassified: "Sin clasificar",
     btn_copy_script: "Copiar",
-    label_dry_run:         '🔍 Dry-run — simular sin modificar (pull para el despliegue',
     help_guide: `Guía de uso Unraid Docker Orchestrator
 
 1. IMPORTAR contenedores

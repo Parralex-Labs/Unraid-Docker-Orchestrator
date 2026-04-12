@@ -470,8 +470,6 @@ function applySettingsToPauses() {
     if (bd) bd.value = s.timing.boot_delay;
   }
   if (s.prefs) {
-        var dr = document.getElementById('dry-run');
-    if (dr && s.prefs.dryRun !== undefined) dr.checked = !!s.prefs.dryRun;
   }
 }
 
@@ -492,7 +490,6 @@ function collectSettings() {
 
 function collectPrefs() {
   return {
-    dryRun:        !!(document.getElementById('dry-run') || {}).checked,
   };
 }
 
@@ -504,8 +501,6 @@ function applySettings(s) {
 
 function applyPrefs(p) {
   if (!p) return;
-  var dr = document.getElementById('dry-run');
-  if (dr && p.dryRun !== undefined) dr.checked = !!p.dryRun;
 }
 
 function saveSettings() {
@@ -705,7 +700,6 @@ function switchScriptMode(btn) {
   }
 
   setDisplay('abort-row',          isStart);
-  setDisplay('dry-run-row',        isUpdate);
   setDisplay('update-delay-row',   isUpdate);
 
   // Réinitialiser les boutons d'action au changement d'onglet
@@ -1108,7 +1102,7 @@ function wireEvents() {
   });
 
   // Auto-save sur changement des checkboxes options
-  ['dry-run','abort-on-failure'].forEach(function(id) {
+  [,'abort-on-failure'].forEach(function(id) {
     var el = document.getElementById(id);
     if (el) el.addEventListener('change', function() { autosave(); });
   });

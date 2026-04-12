@@ -762,8 +762,6 @@ function generateUpdateScript() {
   var d = new Date().toLocaleDateString(locales[currentLang] || 'fr-FR');
   var bootDelay = (document.getElementById('boot-delay-update') || {}).value || '0';
 
-  var _drEl = document.getElementById('dry-run');
-  var dryRun = _drEl ? _drEl.checked : !!(loadSettings().prefs && loadSettings().prefs.dryRun);
   var s = loadSettings();
   var dockerTimeout = (s.timing && s.timing.docker_timeout !== undefined) ? s.timing.docker_timeout : 120;
   var globalTimeout = (s.timing && s.timing.global_timeout !== undefined) ? s.timing.global_timeout : 60;
@@ -866,7 +864,6 @@ function generateUpdateScript() {
   L.push('');
   L.push('LOG="/tmp/udo_update_order.log"');
   L.push('DOCKER="docker"');
-  L.push('DRY_RUN=' + (dryRun ? '1' : '0') + '  # 1 = simulation sans modification');
 
   L.push('GLOBAL_TIMEOUT=' + globalTimeout);
   L.push('log() { echo "$(date) - $1" | tee -a "$LOG"; }');
@@ -932,11 +929,6 @@ function generateUpdateScript() {
   L.push('    local current_id new_id');
   L.push('    # {{.Image}} retourne sha256:abcdef... — on saute le prefixe sha256: (7 chars)');
   L.push('    current_id=$($DOCKER inspect --format="{{.Image}}" "$name" 2>/dev/null | cut -c8-19)');
-  L.push('    if [ "$DRY_RUN" = "1" ]; then');
-  L.push('        log "[DRY-RUN] check $name ($img)"');
-  L.push('        UPDATED[$name]="1"; UPDATED_COUNT=$((UPDATED_COUNT+1))');
-  L.push('        return 0');
-  L.push('    fi');
   L.push('    # Pull avec indicateur de progression (ligne de vie toutes les 5s)');
   L.push('    log "Pull en cours: $name ($img)..."');
   L.push('    $DOCKER pull "$img" >> "$LOG" 2>&1 &');
@@ -992,24 +984,6 @@ function generateUpdateScript() {
   L.push('log "$UPDATED_COUNT ' + t('js_update_summary_msg') + '"');
   L.push('');
 
-  // ── Dry-run summary ───────────────────────────────────────────────────────
-  L.push('if [ "$DRY_RUN" = "1" ]; then');
-  L.push('    log "[DRY-RUN] Containers qui seraient mis à jour:"');
-  orderedNames.forEach(function(name) {
-    var c = allContainers.find(function(x){ return x.name === name; });
-    if (c && c.isDB && !c.allowDBUpdate) return;  // BDD exclues sauf si allowDBUpdate
-    var dbTag = (c && c.isDB && c.allowDBUpdate) ? '[bdd-forcée]' : '';
-    var src = c && c.isCompose ? '[compose]' : c && c.hasXml ? '[xml]' : '[pull]';
-    L.push('    log "  ' + name + ' ' + src + (dbTag ? ' ' + dbTag : '') + '"');
-  });
-  // Lister les BDD exclues séparément
-  var dbNames = allContainers.filter(function(c){ return c.isDB && !c.allowDBUpdate; }).map(function(c){ return c.name; });
-  if (dbNames.length > 0) {
-    L.push('    log "[DRY-RUN] BDD exclues (update manuel requis): ' + dbNames.join(', ') + '"');
-  }
-  L.push('    cat "$LOG"; exit 0');
-  L.push('fi');
-  L.push('');
 
 
           L.push('declare -A _UPDATING  # protection contre appels redondants');

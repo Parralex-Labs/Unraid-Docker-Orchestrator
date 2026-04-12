@@ -287,11 +287,6 @@ var UDO_AUTOSTART_CONTAINER_COUNT = <?= (int)$autostartContainerCount ?>;
       <input type="checkbox" id="abort-on-failure">
       <label for="abort-on-failure" data-i18n="lbl_abort_fail">🛑 Arrêt si échec</label>
     </div>
-
-    <div class="udo-option-row" id="dry-run-row" style="display:none">
-      <input type="checkbox" id="dry-run">
-      <label for="dry-run"><span data-i18n="label_dry_run">Dry-run</span></label>
-    </div>
   </div>
   <div class="udo-script-tabs">
     <button class="udo-script-tab active" data-mode="start" onclick="switchScriptMode(this)">
