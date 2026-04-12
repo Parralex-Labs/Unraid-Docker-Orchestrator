@@ -1,42 +1,41 @@
 <?xml version='1.0' standalone='yes'?>
-
 <!DOCTYPE PLUGIN [
-  <!ENTITY name         "unraid-docker-orchestrator">
-  <!ENTITY author       "Parralex-Labs">
-  <!ENTITY version      "PLUGIN_VERSION">
-  <!ENTITY tag          "PLUGIN_TAG">
-  <!ENTITY github       "Parralex-Labs/Unraid-Docker-Orchestrator">
-  <!ENTITY pluginURL    "https://github.com/&github;/releases/download/&tag;/udo.plg">
-  <!ENTITY pkgURL       "https://github.com/&github;/releases/download/&tag;">
-  <!ENTITY pluginpkg    "unraid-docker-orchestrator-&version;-x86_64-1.txz">
-  <!ENTITY pluginpkgmd5 "PLUGIN_MD5">
-  <!ENTITY supportURL   "https://github.com/&github;/issues">
+<!ENTITY name         "unraid-docker-orchestrator">
+<!ENTITY author       "Parralex-Labs">
+<!ENTITY version      "2026.04.12">
+<!ENTITY md5          "abc123test456">
+<!ENTITY github       "Parralex-Labs/Unraid-Docker-Orchestrator">
+<!ENTITY pluginURL    "https://raw.githubusercontent.com/&github;/main/plugin/udo.plg">
+<!ENTITY pluginpkg    "&name;-&version;-x86_64-1.txz">
 ]>
 
 <PLUGIN name="&name;"
         author="&author;"
         version="&version;"
         pluginURL="&pluginURL;"
-        support="&supportURL;"
+        support="https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/issues"
         min="7.0.0"
         icon="tasks">
 
 <CHANGES>
 ## Unraid Docker Orchestrator
-
-### PLUGIN_VERSION
-- Initial release
-
+### 2026.04.12
+- See https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/releases
 </CHANGES>
 
-<FILE Name="/boot/config/plugins/&name;/packages/&pluginpkg;" Run="upgradepkg --install-new">
-  <URL>&pkgURL;/&pluginpkg;</URL>
-  <MD5>&pluginpkgmd5;</MD5>
+<FILE Run="/bin/bash">
+<INLINE>
+rm -f $(ls /boot/config/plugins/&name;/&name;*.txz 2>/dev/null | grep -v '&version;')
+</INLINE>
+</FILE>
+
+<FILE Name="/boot/config/plugins/&name;/&name;-&version;-x86_64-1.txz" Run="upgradepkg --install-new">
+<URL>https://raw.githubusercontent.com/&github;/main/archive/&pluginpkg;</URL>
+<MD5>&md5;</MD5>
 </FILE>
 
 <FILE Run="/bin/bash">
 <INLINE>
-set -e
 INSTALL_SH="/usr/local/emhttp/plugins/unraid-docker-orchestrator/install.sh"
 if [ -f "$INSTALL_SH" ]; then
   bash "$INSTALL_SH"
@@ -49,7 +48,6 @@ fi
 
 <FILE Run="/bin/bash" Method="remove">
 <INLINE>
-set -e
 UNINSTALL_SH="/usr/local/emhttp/plugins/unraid-docker-orchestrator/uninstall.sh"
 if [ -f "$UNINSTALL_SH" ]; then
   bash "$UNINSTALL_SH"

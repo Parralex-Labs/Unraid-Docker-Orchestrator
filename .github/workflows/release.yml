@@ -67,8 +67,8 @@ jobs:
           printf '%s\n' \
             'unraid-docker-orchestrator: Unraid Docker Orchestrator (UDO)' \
             'unraid-docker-orchestrator:' \
-            'unraid-docker-orchestrator: Manage Docker container startup order, dependencies,' \
-            'unraid-docker-orchestrator: and automatic updates on Unraid.' \
+            'unraid-docker-orchestrator: Manage Docker container startup order,' \
+            'unraid-docker-orchestrator: dependencies, and automatic updates on Unraid.' \
             'unraid-docker-orchestrator:' \
             'unraid-docker-orchestrator: Author  : Parralex-Labs' \
             'unraid-docker-orchestrator: License : GPL v3' \
@@ -84,7 +84,7 @@ jobs:
               .
 
           echo "PKG_NAME=${PKG_NAME}" >> "${GITHUB_ENV}"
-          echo "Package créé : ${PKG_NAME}.txz ($(du -sh /tmp/${PKG_NAME}.txz | cut -f1))"
+          echo "Package: ${PKG_NAME}.txz ($(du -sh /tmp/${PKG_NAME}.txz | cut -f1))"
 
       - name: Compute MD5
         id: md5
@@ -93,35 +93,26 @@ jobs:
           echo "MD5=${MD5}" >> "${GITHUB_OUTPUT}"
           echo "MD5: ${MD5}"
 
-      - name: Generate udo.plg
+      - name: Generate udo.plg and copy txz to archive
         env:
           VERSION: ${{ steps.version.outputs.VERSION }}
-          TAG: ${{ steps.version.outputs.TAG }}
           MD5: ${{ steps.md5.outputs.MD5 }}
         run: |
-          echo "VERSION=${VERSION} TAG=${TAG} MD5=${MD5}"
-          sed \
-            -e "s|PLUGIN_VERSION|${VERSION}|g" \
-            -e "s|PLUGIN_TAG|${TAG}|g" \
-            -e "s|PLUGIN_MD5|${MD5}|g" \
-            plugin/udo.plg > /tmp/udo.plg
-          echo "--- Vérification ---"
-          grep -E 'entity version|entity tag|pkgURL|MD5' /tmp/udo.plg
+          mkdir -p archive
+          cp "/tmp/${{ env.PKG_NAME }}.txz" "archive/${{ env.PKG_NAME }}.txz"
+          python3 scripts/generate_plg.py
 
-      - name: Upload assets to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: |
-            /tmp/${{ env.PKG_NAME }}.txz
-            /tmp/udo.plg
-
-      - name: Commit updated udo.plg to repository
+      - name: Commit archive and udo.plg to main
         env:
-          TAG: ${{ steps.version.outputs.TAG }}
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          cp /tmp/udo.plg plugin/udo.plg
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add plugin/udo.plg
-          git commit -m "chore: update udo.plg to ${TAG}" || echo "Rien à committer"
+          git add archive/ plugin/udo.plg
+          git commit -m "release: ${VERSION}" || echo "Nothing to commit"
           git push origin HEAD:main
+
+      - name: Upload .txz to GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: /tmp/${{ env.PKG_NAME }}.txz
