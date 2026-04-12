@@ -17,15 +17,16 @@ jobs:
       - name: Extract version
         id: version
         run: |
-          TAG="${{ github.event.release.tag_name }}"
+          TAG="${GITHUB_REF_NAME}"
           VERSION="${TAG#v}"
-          echo "TAG=$TAG"         >> $GITHUB_OUTPUT
-          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
-          echo "Tag: $TAG | Version: $VERSION"
+          echo "TAG=${TAG}"         >> "${GITHUB_OUTPUT}"
+          echo "VERSION=${VERSION}" >> "${GITHUB_OUTPUT}"
+          echo "Tag: ${TAG} | Version: ${VERSION}"
 
       - name: Build .txz package
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
           PKG_NAME="unraid-docker-orchestrator-${VERSION}-x86_64-1"
           PKG_DIR="/tmp/pkg_build"
 
@@ -49,7 +50,6 @@ jobs:
           cp "${PLUGIN_SRC}/udo-icon.png"                "${PLUGIN_DEST}/"
           cp "${PLUGIN_SRC}/icons/"*.png                 "${PLUGIN_DEST}/icons/"  2>/dev/null || true
           cp "${PLUGIN_SRC}/images/"*.png                "${PLUGIN_DEST}/images/" 2>/dev/null || true
-
           cp install.sh   "${PLUGIN_DEST}/install.sh"
           cp uninstall.sh "${PLUGIN_DEST}/uninstall.sh"
           chmod 755 "${PLUGIN_DEST}/install.sh"
@@ -57,24 +57,24 @@ jobs:
           chmod 755 "${PLUGIN_DEST}/scripts/udo-check.sh"
           chmod 755 "${PLUGIN_DEST}/scripts/udo_update_one.php"
 
-          cat > "${PKG_DIR}/install/doinst.sh" << 'DOINST'
-          chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/install.sh
-          chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/uninstall.sh
-          chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/scripts/udo-check.sh
-          chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/scripts/udo_update_one.php
-          DOINST
+          printf '%s\n' \
+            'chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/install.sh' \
+            'chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/uninstall.sh' \
+            'chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/scripts/udo-check.sh' \
+            'chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/scripts/udo_update_one.php' \
+            > "${PKG_DIR}/install/doinst.sh"
 
-          cat > "${PKG_DIR}/install/slack-desc" << SLACK
-          unraid-docker-orchestrator: Unraid Docker Orchestrator (UDO)
-          unraid-docker-orchestrator:
-          unraid-docker-orchestrator: Manage Docker container startup order, dependencies,
-          unraid-docker-orchestrator: and automatic updates on Unraid.
-          unraid-docker-orchestrator:
-          unraid-docker-orchestrator: Author  : Parralex-Labs
-          unraid-docker-orchestrator: License : GPL v3
-          unraid-docker-orchestrator: GitHub  : https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator
-          unraid-docker-orchestrator:
-          SLACK
+          printf '%s\n' \
+            'unraid-docker-orchestrator: Unraid Docker Orchestrator (UDO)' \
+            'unraid-docker-orchestrator:' \
+            'unraid-docker-orchestrator: Manage Docker container startup order, dependencies,' \
+            'unraid-docker-orchestrator: and automatic updates on Unraid.' \
+            'unraid-docker-orchestrator:' \
+            'unraid-docker-orchestrator: Author  : Parralex-Labs' \
+            'unraid-docker-orchestrator: License : GPL v3' \
+            'unraid-docker-orchestrator: GitHub  : https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator' \
+            'unraid-docker-orchestrator:' \
+            > "${PKG_DIR}/install/slack-desc"
 
           cd "${PKG_DIR}"
           tar --create \
@@ -83,29 +83,30 @@ jobs:
               --owner=root --group=root \
               .
 
-          echo "PKG_NAME=${PKG_NAME}" >> $GITHUB_ENV
-          echo "Package créé : ${PKG_NAME}.txz"
+          echo "PKG_NAME=${PKG_NAME}" >> "${GITHUB_ENV}"
+          echo "Package créé : ${PKG_NAME}.txz ($(du -sh /tmp/${PKG_NAME}.txz | cut -f1))"
 
       - name: Compute MD5
         id: md5
         run: |
           MD5=$(md5sum "/tmp/${{ env.PKG_NAME }}.txz" | cut -d' ' -f1)
-          echo "MD5=$MD5" >> $GITHUB_OUTPUT
-          echo "MD5: $MD5"
+          echo "MD5=${MD5}" >> "${GITHUB_OUTPUT}"
+          echo "MD5: ${MD5}"
 
       - name: Generate udo.plg
+        env:
+          VERSION: ${{ steps.version.outputs.VERSION }}
+          TAG: ${{ steps.version.outputs.TAG }}
+          MD5: ${{ steps.md5.outputs.MD5 }}
         run: |
-          VERSION="${{ steps.version.outputs.VERSION }}"
-          TAG="${{ steps.version.outputs.TAG }}"
-          MD5="${{ steps.md5.outputs.MD5 }}"
-          # Délimiteur | pour éviter les conflits avec / dans les URLs
+          echo "VERSION=${VERSION} TAG=${TAG} MD5=${MD5}"
           sed \
             -e "s|PLUGIN_VERSION|${VERSION}|g" \
             -e "s|PLUGIN_TAG|${TAG}|g" \
             -e "s|PLUGIN_MD5|${MD5}|g" \
             plugin/udo.plg > /tmp/udo.plg
-          echo "Vérification entités :"
-          grep -E 'version=|tag |pkgURL|MD5|pluginpkg' /tmp/udo.plg | head -6
+          echo "--- Vérification ---"
+          grep -E 'entity version|entity tag|pkgURL|MD5' /tmp/udo.plg
 
       - name: Upload assets to release
         uses: softprops/action-gh-release@v2
@@ -115,10 +116,12 @@ jobs:
             /tmp/udo.plg
 
       - name: Commit updated udo.plg to repository
+        env:
+          TAG: ${{ steps.version.outputs.TAG }}
         run: |
           cp /tmp/udo.plg plugin/udo.plg
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add plugin/udo.plg
-          git commit -m "chore: update udo.plg to ${{ steps.version.outputs.TAG }}" || echo "Rien à committer"
+          git commit -m "chore: update udo.plg to ${TAG}" || echo "Rien à committer"
           git push origin HEAD:main
