@@ -665,6 +665,22 @@
 .sim-parallel { color: #9b59b6; font-size: 12px; margin-left: 4px; }
 
 /* ── Colonne dépendances dans les rows ──────────────────────────────────── */
+.db-update-toggle {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 5px;
+  border-radius: 4px;
+  background: rgba(231, 76, 60, 0.12);
+  border: 1px solid rgba(231, 76, 60, 0.25);
+  cursor: default;
+  flex-shrink: 0;
+}
+.db-update-toggle:has(input:checked) {
+  background: rgba(231, 76, 60, 0.25);
+  border-color: rgba(231, 76, 60, 0.5);
+}
+
 .row-deps {
   display: flex; flex-wrap: wrap; gap: 2px;
   align-items: center; overflow: hidden;
