@@ -109,7 +109,7 @@ jobs:
             printf "<!ENTITY version      \"%s\">\n" "${V}"
             printf "<!ENTITY md5          \"%s\">\n" "${M}"
             printf '%s\n' '<!ENTITY github       "Parralex-Labs/Unraid-Docker-Orchestrator">'
-            printf '%s\n' '<!ENTITY pluginURL    "https://raw.githubusercontent.com/&github;/main/plugin/udo.plg">'
+            printf '%s\n' '<!ENTITY pluginURL    "https://raw.githubusercontent.com/&github;/main/plugin/unraid-docker-orchestrator.plg">'
             printf '%s\n' '<!ENTITY pluginpkg    "&name;-&version;-x86_64-1.txz">'
             printf '%s\n' ']>'
             printf '%s\n' ''
@@ -159,9 +159,9 @@ jobs:
             printf '%s\n' '</FILE>'
             printf '%s\n' ''
             printf '%s\n' '</PLUGIN>'
-          } > plugin/udo.plg
-          echo "Generated plugin/udo.plg:"
-          grep -E "version|md5|URL" plugin/udo.plg | head -5
+          } > plugin/unraid-docker-orchestrator.plg
+          echo "Generated plugin/unraid-docker-orchestrator.plg:"
+          grep -E "version|md5|URL" plugin/unraid-docker-orchestrator.plg | head -5
 
       - name: Commit archive and udo.plg to main
         env:
@@ -169,7 +169,7 @@ jobs:
         run: |
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
-          git add archive/ plugin/udo.plg
+          git add archive/ plugin/unraid-docker-orchestrator.plg
           git commit -m "release: ${VERSION}" || echo "Nothing to commit"
           git push origin HEAD:main
 

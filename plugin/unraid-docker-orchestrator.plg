@@ -5,7 +5,7 @@
 <!ENTITY version      "2026.04.12">
 <!ENTITY md5          "abc123test456">
 <!ENTITY github       "Parralex-Labs/Unraid-Docker-Orchestrator">
-<!ENTITY pluginURL    "https://raw.githubusercontent.com/&github;/main/plugin/udo.plg">
+<!ENTITY pluginURL    "https://raw.githubusercontent.com/&github;/main/plugin/unraid-docker-orchestrator.plg">
 <!ENTITY pluginpkg    "&name;-&version;-x86_64-1.txz">
 ]>
 
