@@ -47,6 +47,34 @@ function getAbortOnFailure() {
   return (s.timing && s.timing.abort_on_failure) ? 1 : 0;
 }
 
+// Remplace les outils non disponibles sur Unraid par des équivalents natifs
+// Actuellement : jq → grep/sed/cut
+// Extensible : ajouter d'autres outils si nécessaire
+function sanitizeCheckCmd(cmd) {
+  if (!cmd) return cmd;
+  // Remplace les outils absents sur Unraid par des equivalents natifs (grep, curl, nc)
+  // Extensible : ajouter ici tout nouvel outil a sanitiser
+
+  // jq : non disponible par defaut sur Unraid
+  // Pattern 1 : | jq -ne 'input.status == true'  ->  grep sans jq
+  cmd = cmd.replace(/\|\s*jq\s+-ne?\s+[\'"]input\.status\s*==\s*true[\'"]/g,
+    '| grep -q \'"status":true\'');
+  // Pattern 2 : | jq -r '.field'  -> supprime (curl seul suffit)
+  cmd = cmd.replace(/\|\s*jq\s+-r\s+[\'"]\.[\w.]+[\'"]/g, '');
+  // Pattern generique : tout jq restant -> curl -sf sur le port detecte
+  if (/\bjq\b/.test(cmd)) {
+    var _pm = cmd.match(/localhost:(\d{2,5})/);
+    var _ph = cmd.match(/localhost:\d+(\/[^\s'"]*)?/);
+    if (_pm) {
+      var _port = _pm[1];
+      var _path = (_ph && _ph[1]) ? _ph[1].replace(/[\s'"]+.*/, '') : '/';
+      cmd = 'curl -sf http://localhost:' + _port + _path + ' >/dev/null';
+    }
+    // Aucun port trouve -> laisser tel quel, wait_for gerera le fallback nc
+  }
+  return cmd;
+}
+
 function generateStartScript() {
   var L=[];
   var locales = { fr: 'fr-FR', en: 'en-GB', es: 'es-ES', de: 'de-DE' };
@@ -69,6 +97,7 @@ function generateStartScript() {
   L.push('DOCKER="docker"');
   L.push('GLOBAL_TIMEOUT=' + getGlobalTimeout());
   L.push('log() { echo "$(date) - $1" | tee -a "$LOG"; }');
+  L.push('rm -f /tmp/udo_*.status 2>/dev/null  # nettoyage résidus session précédente');
   L.push('');
   L.push('BOOT_DELAY=' + getBootDelay() + '  # ' + t('js_script_boot_delay_comment'));
   L.push('if [ "$BOOT_DELAY" -gt 0 ]; then');
@@ -793,6 +822,8 @@ function generateUpdateScript() {
       if (!hcCmd && inspC && inspC.healthcheck && inspC.healthcheck.test) {
         hcCmd = inspC.healthcheck.test;
       }
+      // Sanitisation : remplacer jq par grep (jq non disponible sur Unraid par défaut)
+      hcCmd = sanitizeCheckCmd(hcCmd);
       var hcEscaped = hcCmd.replace(/\\/g,'\\\\').replace(/"/g,'\\"').replace(/\$/g,'\\$');
       var image = (hasXml && inspC.Image) ? inspC.Image : (c.image || '');
 
@@ -931,6 +962,7 @@ function generateUpdateScript() {
   L.push('    current_id=$($DOCKER inspect --format="{{.Image}}" "$name" 2>/dev/null | cut -c8-19)');
   L.push('    # Pull avec indicateur de progression (ligne de vie toutes les 5s)');
   L.push('    log "Pull en cours: $name ($img)..."');
+  L.push('    local _pull_pid _pull_elapsed');
   L.push('    $DOCKER pull "$img" >> "$LOG" 2>&1 &');
   L.push('    _pull_pid=$!');
   L.push('    _pull_elapsed=0');
@@ -1040,9 +1072,10 @@ function generateUpdateScript() {
   L.push('        done');
   L.push('    fi');
   L.push('');
-  L.push('    [ -z "$_udo_php" ] || [ ! -f "$_udo_php" ] || return 0');
+  L.push('    # PHP a réussi → sortir, sinon tomber dans le fallback');
+  L.push('    [ "$_update_ok" = "1" ] && return 0');
   L.push('');
-  L.push('    # Fallback si PHP absent');
+  L.push('    # Fallback si PHP absent ou en erreur');
   L.push('    log "WARN: udo_update_one.php absent — fallback docker pull/restart"');
   L.push('    local _img; _img=$($DOCKER inspect --format="{{.Config.Image}}" "$name" 2>/dev/null)');
   L.push('    if [ -n "$_img" ]; then');
