@@ -3,7 +3,7 @@
 <!ENTITY name         "unraid-docker-orchestrator">
 <!ENTITY author       "Parralex-Labs">
 <!ENTITY version      "2026.04.12">
-<!ENTITY md5          "abc123test456">
+<!ENTITY md5          "0b2086d2c4b25cacd363fad127713e42">
 <!ENTITY github       "Parralex-Labs/Unraid-Docker-Orchestrator">
 <!ENTITY pluginURL    "https://raw.githubusercontent.com/&github;/main/plugin/udo.plg">
 <!ENTITY pluginpkg    "&name;-&version;-x86_64-1.txz">
