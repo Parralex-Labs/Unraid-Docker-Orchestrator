@@ -1,82 +1,64 @@
-# Docker Startup Manager - Plugin Unraid
+# 🛡️ Unraid Docker Manager
 
-Gestionnaire de démarrage/arrêt/mise à jour ordonné des conteneurs Docker, 
-intégré nativement dans l'interface Unraid.
+![Logo Parralex-Labs](https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/blob/main/UDO.png)
 
-## Structure
+[![License: GPL v3](https://img.shields.io/badge/License-GPLv3-blue.svg)](https://www.gnu.org/licenses/gpl-3.0)
+[![Platform: Unraid](https://img.shields.io/badge/Platform-Unraid-orange.svg)](https://unraid.net/)
+[![Shell: Bash](https://img.shields.io/badge/Shell-Bash-4EAA25.svg)](https://www.gnu.org/software/bash/)
+[![Support Ko-fi](https://img.shields.io/badge/Support-Ko--fi-F16061?logo=ko-fi&logoColor=white)](https://ko-fi.com/cbh17000)
 
-```
-dsm-plugin/
-├── install.sh                              ← Script d'installation manuelle
-├── docker-startup-manager.plg              ← Manifest plugin (pour CA futur)
-└── docker-startup-manager/
-    ├── DSM.page                            ← Page principale (menu Unraid)
-    ├── css/
-    │   └── dsm.css                         ← Styles compatibles thème Unraid
-    ├── js/
-    │   └── dsm.js                          ← Logique frontend
-    └── include/
-        └── ajax.php                        ← Backend PHP (API AJAX)
-```
+**L'orchestrateur de précision conçu pour la résilience des serveurs Unraid.** *Unraid Docker Manager* n'est pas un simple script de mise à jour ; c'est un gardien qui assure la continuité de service de vos conteneurs les plus critiques.
 
-## Installation manuelle (phase dev)
+---
 
-```bash
-# Sur votre Unraid via SSH
-cd /tmp
-# Copier les fichiers (scp, sftp, ou coller directement)
-bash install.sh
-```
+## 🧠 Philosophie & Architecture
 
-## Endpoints AJAX disponibles
+L'outil a été développé pour résoudre les angles morts de la gestion Docker native sur Unraid, notamment la gestion des dépendances complexes et la protection contre les échecs de mise à jour.
 
-| Action | Méthode | Description |
-|--------|---------|-------------|
-| `import_docker` | GET | Import automatique via docker inspect |
-| `read_templates` | GET | Lecture templates XML Unraid |
-| `save_config` | POST | Sauvegarde dans /boot/config |
-| `load_config` | GET | Chargement depuis /boot/config |
-| `install_script` | POST | Installation dans User Scripts |
-| `run_script` | POST | Exécution d'un script |
-| `container_status` | GET | Statut live des conteneurs |
-| `save_cron` | POST | Planification cron |
-| `read_log` | GET | Lecture log d'exécution |
+### 🔗 Orchestration des Dépendances
+Le script analyse intelligemment la pile réseau et les volumes pour garantir un ordre de démarrage logique :
+* **Réseaux Parents :** Identification automatique des conteneurs dépendants d'un VPN (ex: `Gluetun`) ou d'un autre conteneur parent.
+* **Volumes Partagés :** Priorisation des services fournissant des données avant le lancement des clients.
+* **Timeouts Granulaires :** Chaque conteneur dispose d'un temps d'attente de santé personnalisé avant que la suite de la pile ne s'exécute.
 
-## Configuration persistante
+### 🔄 Résilience & Rollback (Fail-Safe)
+La peur de la "mise à jour qui casse tout" est éliminée grâce à un mécanisme de sécurité en deux étapes :
+1.  **Tag de Sauvegarde :** Avant chaque mise à jour, l'image actuelle est isolée.
+2.  **Restauration Immédiate :** Si la nouvelle image échoue au test de démarrage (`Healthcheck`) ou si le conteneur crash, le script retague automatiquement l'ancienne image et relance le service.
 
-La configuration est stockée dans :
-```
-/boot/config/plugins/docker-startup-manager/config.json
-```
+### 🛡️ Protection Intégrée des Données
+Pour éviter toute corruption, le script applique une politique stricte sur les bases de données (`MariaDB`, `PostgreSQL`, `Redis`, `InfluxDB`). Ces conteneurs sont :
+* **Identifiés par signature :** Détection automatique des moteurs de DB.
+* **Exclus des mises à jour aveugles :** Seul le redémarrage est géré, laissant la mise à jour de version à une intervention manuelle sécurisée.
 
-Ce fichier est sur la clé USB Unraid → persistant à travers les mises à jour.
+### 🧹 Optimisation du Système
+* **Self-Healing :** Un mécanisme de nettoyage préventif élimine les caractères invisibles (NBSP) souvent introduits lors des copier-coller Web, garantissant l'intégrité du code Bash.
+* **Gestion du "Dangling" :** Nettoyage automatique des images orphelines après succès, préservant l'espace disque de votre cache ou de votre array.
 
-## Roadmap
+---
 
-- [x] Structure de base plugin
-- [x] Page DSM.page intégrée dans Unraid
-- [x] Backend PHP ajax.php
-- [x] CSS compatible thème Unraid
-- [x] Import automatique docker inspect
-- [x] Persistance config.json
-- [x] Installation directe dans User Scripts
-- [x] Exécution avec log en live
-- [x] Planification cron
-- [ ] Intégration logique complète depuis HTML standalone
-- [ ] Notifications Unraid natives
-- [ ] Distribution Community Applications
+## 📊 Notifications & Visibilité
 
+Le script communique directement avec l'OS Unraid pour fournir un feedback en temps réel :
+* **Alertes Contextuelles :** Notifications rouges en cas d'erreur avec détail tronqué intelligemment (250 caractères max) pour une lecture parfaite sur l'interface Dashboard.
+* **Logs Structurés :** Génération d'un fichier de log détaillé (`/tmp/docker_update_order.log`) incluant le succès des pull, les temps de démarrage et les éventuels rollbacks effectués.
 
-## Licence
+---
 
-**Unraid Docker Orchestrator** est distribué sous licence [GNU General Public License v3.0](LICENSE).
+## 📖 Documentation
+Pour une prise en main complète du plugin, consultez les guides suivants :
+* 📘 [**Guide Utilisateur**](Manual/udo-user-guide.md)
+* 🛠️ [**Manuel du Développeur**](Manual/udo-developer-manual.md)
 
-```
-Copyright (C) 2026 Parralex-Labs
-https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator
+---
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-```
+## 🤝 Contribution & Open Source
+
+Ce projet est une initiative de **Parralex-Labs**. Il est 100% gratuit, transparent et ouvert aux suggestions de la communauté. Chaque ligne de code est pensée pour la robustesse et la sécurité de l'infrastructure domestique.
+
+🤖 Human-AI Collaboration : Ce script est le fruit d'un travail de Pair Programming entre l'expertise terrain de Parralex-Labs et une IA. Cette synergie a permis de garantir un code robuste, documenté et conforme aux meilleures pratiques de scripting Linux tout en répondant aux besoins spécifiques des utilisateurs Unraid.
+
+**📜 Licence :** Distribué sous licence **GNU GPL v3**.
+
+---
+*Surveiller. Protéger. Optimiser.*
