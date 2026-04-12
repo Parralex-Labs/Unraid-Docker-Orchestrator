@@ -802,6 +802,32 @@ function buildRow(gi, ci) {
   })(gi, ci, rowCname));
   depsDiv.appendChild(addDepBtn);
 
+  // Badge DB + toggle allowDBUpdate (visible uniquement pour les containers isDB)
+  var isDBContainer = /mariadb|mysql|postgres|mongo|redis|influx/i.test((c.image || c.name || ''));
+  var dbWrap = null;
+  if (isDBContainer) {
+    dbWrap = document.createElement('div');
+    dbWrap.className = 'toggle-wrap';
+    dbWrap.title = c.allowDBUpdate ? t('toggle_allow_db_update_on') : t('toggle_allow_db_update_off');
+    dbWrap.style.cssText = 'display:flex;align-items:center;gap:4px;';
+    var dbBadge = document.createElement('span');
+    dbBadge.textContent = '🗄️';
+    dbBadge.style.cssText = 'font-size:13px;cursor:help;';
+    dbBadge.title = t('toggle_allow_db_update_hint');
+    var dbLbl = document.createElement('label'); dbLbl.className = 'toggle';
+    var dbChk = document.createElement('input'); dbChk.type = 'checkbox';
+    dbChk.checked = !!c.allowDBUpdate;
+    dbChk.addEventListener('change', (function(i,j){ return function(){
+      groups[i].containers[j].allowDBUpdate = this.checked;
+      this.closest('.toggle-wrap').title = this.checked ? t('toggle_allow_db_update_on') : t('toggle_allow_db_update_off');
+      if (typeof autosave === 'function') autosave();
+    }; })(gi,ci));
+    var dbSl = document.createElement('span'); dbSl.className = 'toggle-slider';
+    dbLbl.appendChild(dbChk); dbLbl.appendChild(dbSl);
+    dbWrap.appendChild(dbBadge);
+    dbWrap.appendChild(dbLbl);
+  }
+
   nameWrap.appendChild(nIn);
   row.appendChild(hdl);
   row.appendChild(iconContainer);
@@ -810,6 +836,7 @@ function buildRow(gi, ci) {
   row.appendChild(tIn);
   row.appendChild(tw);
   row.appendChild(enWrap);
+  if (dbWrap) row.appendChild(dbWrap);
   row.appendChild(depsDiv);
   row.appendChild(del);
 

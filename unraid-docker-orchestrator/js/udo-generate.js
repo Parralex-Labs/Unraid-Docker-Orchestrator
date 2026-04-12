@@ -979,12 +979,13 @@ function generateUpdateScript() {
   L.push('    log "[DRY-RUN] Containers qui seraient mis à jour:"');
   orderedNames.forEach(function(name) {
     var c = allContainers.find(function(x){ return x.name === name; });
-    if (c && c.isDB) return;  // BDD exclues du DRY_RUN listing aussi
+    if (c && c.isDB && !c.allowDBUpdate) return;  // BDD exclues sauf si allowDBUpdate
+    var dbTag = (c && c.isDB && c.allowDBUpdate) ? '[bdd-forcée]' : '';
     var src = c && c.isCompose ? '[compose]' : c && c.hasXml ? '[xml]' : '[pull]';
-    L.push('    log "  ' + name + ' ' + src + '"');
+    L.push('    log "  ' + name + ' ' + src + (dbTag ? ' ' + dbTag : '') + '"');
   });
-  // Lister les BDD séparément pour info
-  var dbNames = allContainers.filter(function(c){ return c.isDB; }).map(function(c){ return c.name; });
+  // Lister les BDD exclues séparément
+  var dbNames = allContainers.filter(function(c){ return c.isDB && !c.allowDBUpdate; }).map(function(c){ return c.name; });
   if (dbNames.length > 0) {
     L.push('    log "[DRY-RUN] BDD exclues (update manuel requis): ' + dbNames.join(', ') + '"');
   }
@@ -1087,7 +1088,7 @@ function generateUpdateScript() {
       L.push('');
       L.push('# ── Groupe: ' + currentGroup + ' ──────────────────────────────────────');
     }
-    if (c.isDB) {
+    if (c.isDB && !c.allowDBUpdate) {
       var bdd_hc = (c.checkCmd || '').replace(/'/g, "\'") || '';
       L.push('# ── BDD: ' + c.name + ' ────────────────────────────────────────────');
       L.push('# AVERTISSEMENT: Les bases de données sont EXCLUES de la mise à jour automatique.');
@@ -1100,6 +1101,10 @@ function generateUpdateScript() {
         L.push('#   4. Verifier avec: docker exec ' + c.name + ' sh -c "' + bdd_hc + '"');
       }
       L.push('log "INFO: BDD ignorée (update manuel requis): ' + c.name + '"');
+    } else if (c.isDB && c.allowDBUpdate) {
+      L.push('# ── BDD: ' + c.name + ' (MAJ autorisée par l\'utilisateur) ──────────');
+      L.push('log "WARN: Mise a jour BDD autorisee manuellement - verifiez le backup: ' + c.name + '"');
+      L.push('update_one "' + c.name + '"');
     } else {
       L.push('update_one "' + c.name + '"');
     }
