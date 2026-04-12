@@ -98,9 +98,75 @@ jobs:
           VERSION: ${{ steps.version.outputs.VERSION }}
           MD5: ${{ steps.md5.outputs.MD5 }}
         run: |
-          mkdir -p archive
+          mkdir -p archive plugin
           cp "/tmp/${{ env.PKG_NAME }}.txz" "archive/${{ env.PKG_NAME }}.txz"
-          python3 scripts/generate_plg.py
+          V="${VERSION}" M="${MD5}"
+          {
+            printf '%s\n' "<?xml version='1.0' standalone='yes'?>"
+            printf '%s\n' '<!DOCTYPE PLUGIN ['
+            printf '%s\n' '<!ENTITY name         "unraid-docker-orchestrator">'
+            printf '%s\n' '<!ENTITY author       "Parralex-Labs">'
+            printf "<!ENTITY version      \"%s\">\n" "${V}"
+            printf "<!ENTITY md5          \"%s\">\n" "${M}"
+            printf '%s\n' '<!ENTITY github       "Parralex-Labs/Unraid-Docker-Orchestrator">'
+            printf '%s\n' '<!ENTITY pluginURL    "https://raw.githubusercontent.com/&github;/main/plugin/udo.plg">'
+            printf '%s\n' '<!ENTITY pluginpkg    "&name;-&version;-x86_64-1.txz">'
+            printf '%s\n' ']>'
+            printf '%s\n' ''
+            printf '%s\n' '<PLUGIN name="&name;"'
+            printf '%s\n' '        author="&author;"'
+            printf '%s\n' '        version="&version;"'
+            printf '%s\n' '        pluginURL="&pluginURL;"'
+            printf '%s\n' '        support="https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/issues"'
+            printf '%s\n' '        min="7.0.0"'
+            printf '%s\n' '        icon="tasks">'
+            printf '%s\n' ''
+            printf '%s\n' '<CHANGES>'
+            printf '%s\n' '## Unraid Docker Orchestrator'
+            printf "### %s\n" "${V}"
+            printf '%s\n' '- See https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/releases'
+            printf '%s\n' '</CHANGES>'
+            printf '%s\n' ''
+            printf '%s\n' '<FILE Run="/bin/bash">'
+            printf '%s\n' '<INLINE>'
+            printf '%s\n' 'rm -f $(ls /boot/config/plugins/&name;/&name;*.txz 2>/dev/null | grep -v '"'"'&version;'"'"')'
+            printf '%s\n' '</INLINE>'
+            printf '%s\n' '</FILE>'
+            printf '%s\n' ''
+            printf '%s\n' '<FILE Name="/boot/config/plugins/&name;/&name;-&version;-x86_64-1.txz" Run="upgradepkg --install-new">'
+            printf '%s\n' '<URL>https://raw.githubusercontent.com/&github;/main/archive/&pluginpkg;</URL>'
+            printf '%s\n' '<MD5>&md5;</MD5>'
+            printf '%s\n' '</FILE>'
+            printf '%s\n' ''
+            printf '%s\n' '<FILE Run="/bin/bash">'
+            printf '%s\n' '<INLINE>'
+            printf '%s\n' 'INSTALL_SH="/usr/local/emhttp/plugins/unraid-docker-orchestrator/install.sh"'
+            printf '%s\n' 'if [ -f "$INSTALL_SH" ]; then'
+            printf '%s\n' '  bash "$INSTALL_SH"'
+            printf '%s\n' 'else'
+            printf '%s\n' '  echo "ERROR: install.sh not found"'
+            printf '%s\n' '  exit 1'
+            printf '%s\n' 'fi'
+            printf '%s\n' '</INLINE>'
+            printf '%s\n' '</FILE>'
+            printf '%s\n' ''
+            printf '%s\n' '<FILE Run="/bin/bash" Method="remove">'
+            printf '%s\n' '<INLINE>'
+            printf '%s\n' 'UNINSTALL_SH="/usr/local/emhttp/plugins/unraid-docker-orchestrator/uninstall.sh"'
+            printf '%s\n' 'if [ -f "$UNINSTALL_SH" ]; then'
+            printf '%s\n' '  bash "$UNINSTALL_SH"'
+            printf '%s\n' 'else'
+            printf '%s\n' '  rm -rf /usr/local/emhttp/plugins/unraid-docker-orchestrator'
+            printf '%s\n' '  rm -rf /boot/config/plugins/unraid-docker-orchestrator'
+            printf '%s\n' 'fi'
+            printf '%s\n' 'removepkg unraid-docker-orchestrator 2>/dev/null || true'
+            printf '%s\n' '</INLINE>'
+            printf '%s\n' '</FILE>'
+            printf '%s\n' ''
+            printf '%s\n' '</PLUGIN>'
+          } > plugin/udo.plg
+          echo "Generated plugin/udo.plg:"
+          grep -E "version|md5|URL" plugin/udo.plg | head -5
 
       - name: Commit archive and udo.plg to main
         env:
