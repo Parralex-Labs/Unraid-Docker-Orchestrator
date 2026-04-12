@@ -1,0 +1,140 @@
+name: Release UDO Plugin
+
+on:
+  release:
+    types: [published]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      # ── 1. Checkout ──────────────────────────────────────────────────────────
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # ── 2. Extraire la version depuis le tag de release ──────────────────────
+      # Format attendu : v2026.04.12 ou 2026.04.12
+      - name: Extract version
+        id: version
+        run: |
+          VERSION="${{ github.event.release.tag_name }}"
+          VERSION="${VERSION#v}"   # retirer le "v" préfixe si présent
+          echo "VERSION=$VERSION" >> $GITHUB_OUTPUT
+          echo "Version: $VERSION"
+
+      # ── 3. Construire le package .txz (Slackware) ────────────────────────────
+      # Structure requise : les fichiers dans leur chemin final sur le système
+      - name: Build .txz package
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          PKG_NAME="unraid-docker-orchestrator-${VERSION}-x86_64-1"
+          PKG_DIR="/tmp/pkg_build"
+
+          # Créer la structure de répertoires finale (chemins sur Unraid)
+          mkdir -p "${PKG_DIR}/usr/local/emhttp/plugins/unraid-docker-orchestrator/include"
+          mkdir -p "${PKG_DIR}/usr/local/emhttp/plugins/unraid-docker-orchestrator/js"
+          mkdir -p "${PKG_DIR}/usr/local/emhttp/plugins/unraid-docker-orchestrator/css"
+          mkdir -p "${PKG_DIR}/usr/local/emhttp/plugins/unraid-docker-orchestrator/scripts"
+          mkdir -p "${PKG_DIR}/usr/local/emhttp/plugins/unraid-docker-orchestrator/icons"
+          mkdir -p "${PKG_DIR}/usr/local/emhttp/plugins/unraid-docker-orchestrator/images"
+          mkdir -p "${PKG_DIR}/install"
+
+          # Copier les fichiers du plugin
+          PLUGIN_SRC="unraid-docker-orchestrator"
+          PLUGIN_DEST="${PKG_DIR}/usr/local/emhttp/plugins/unraid-docker-orchestrator"
+
+          cp "${PLUGIN_SRC}/UDO.page"                    "${PLUGIN_DEST}/"
+          cp "${PLUGIN_SRC}/include/ajax.php"            "${PLUGIN_DEST}/include/"
+          cp "${PLUGIN_SRC}/css/udo.css"                 "${PLUGIN_DEST}/css/"
+          cp "${PLUGIN_SRC}/js/"*.js                     "${PLUGIN_DEST}/js/"
+          cp "${PLUGIN_SRC}/scripts/udo-check.sh"        "${PLUGIN_DEST}/scripts/"
+          cp "${PLUGIN_SRC}/scripts/udo_update_one.php"  "${PLUGIN_DEST}/scripts/"
+          cp "${PLUGIN_SRC}/udo-icon.png"                "${PLUGIN_DEST}/"
+          cp "${PLUGIN_SRC}/icons/"*.png                 "${PLUGIN_DEST}/icons/" 2>/dev/null || true
+          cp "${PLUGIN_SRC}/images/"*.png                "${PLUGIN_DEST}/images/" 2>/dev/null || true
+
+          # Copier install.sh et uninstall.sh dans le plugin (appelés par le .plg)
+          cp install.sh   "${PLUGIN_DEST}/install.sh"
+          cp uninstall.sh "${PLUGIN_DEST}/uninstall.sh"
+          chmod 755 "${PLUGIN_DEST}/install.sh"
+          chmod 755 "${PLUGIN_DEST}/uninstall.sh"
+          chmod 755 "${PLUGIN_DEST}/scripts/udo-check.sh"
+          chmod 755 "${PLUGIN_DEST}/scripts/udo_update_one.php"
+
+          # Script Slackware doinst.sh (requis pour un .txz valide)
+          cat > "${PKG_DIR}/install/doinst.sh" << 'EOF'
+          # Permissions post-extraction
+          chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/install.sh
+          chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/uninstall.sh
+          chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/scripts/udo-check.sh
+          chmod 755 /usr/local/emhttp/plugins/unraid-docker-orchestrator/scripts/udo_update_one.php
+          EOF
+
+          # Description Slackware (slack-desc)
+          mkdir -p "${PKG_DIR}/install"
+          cat > "${PKG_DIR}/install/slack-desc" << EOF
+          unraid-docker-orchestrator: Unraid Docker Orchestrator (UDO)
+          unraid-docker-orchestrator:
+          unraid-docker-orchestrator: Manage Docker container startup order, dependencies,
+          unraid-docker-orchestrator: and automatic updates on Unraid.
+          unraid-docker-orchestrator:
+          unraid-docker-orchestrator: Author  : Parralex-Labs
+          unraid-docker-orchestrator: License : GPL v3
+          unraid-docker-orchestrator: GitHub  : https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator
+          unraid-docker-orchestrator:
+          EOF
+
+          # Créer le .txz
+          cd "${PKG_DIR}"
+          tar --create \
+              --file="/tmp/${PKG_NAME}.txz" \
+              --use-compress-program=xz \
+              --owner=root --group=root \
+              .
+
+          echo "PKG_NAME=${PKG_NAME}" >> $GITHUB_ENV
+          echo "Package créé : ${PKG_NAME}.txz ($(du -sh /tmp/${PKG_NAME}.txz | cut -f1))"
+
+      # ── 4. Calculer le MD5 du .txz ──────────────────────────────────────────
+      - name: Compute MD5
+        id: md5
+        run: |
+          MD5=$(md5sum "/tmp/${{ env.PKG_NAME }}.txz" | cut -d' ' -f1)
+          echo "MD5=$MD5" >> $GITHUB_OUTPUT
+          echo "MD5: $MD5"
+
+      # ── 5. Générer le .plg final avec version et MD5 ────────────────────────
+      - name: Generate udo.plg
+        run: |
+          VERSION="${{ steps.version.outputs.VERSION }}"
+          MD5="${{ steps.md5.outputs.MD5 }}"
+
+          sed \
+            -e "s/PLUGIN_VERSION/${VERSION}/g" \
+            -e "s/PLUGIN_MD5/${MD5}/g" \
+            plugin/udo.plg > /tmp/udo.plg
+
+          echo "udo.plg généré :"
+          grep -E "version=|MD5|pluginpkg" /tmp/udo.plg | head -5
+
+      # ── 6. Attacher les fichiers à la release GitHub ─────────────────────────
+      - name: Upload assets to release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            /tmp/${{ env.PKG_NAME }}.txz
+            /tmp/udo.plg
+
+      # ── 7. Mettre à jour plugin/udo.plg dans le repo (avec version + MD5) ───
+      # Cela permet à Unraid de détecter les mises à jour via pluginURL
+      - name: Commit updated udo.plg to repository
+        run: |
+          cp /tmp/udo.plg plugin/udo.plg
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add plugin/udo.plg
+          git commit -m "chore: update udo.plg to ${{ steps.version.outputs.VERSION }}" || echo "Rien à committer"
+          git push origin HEAD:main

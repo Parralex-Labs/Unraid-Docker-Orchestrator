@@ -1,0 +1,655 @@
+Menu="Utilities"
+Title="Unraid Docker Orchestrator"
+Icon="udo-icon.png"
+---
+<?
+/*
+ * Unraid Docker Orchestrator
+ * Copyright (C) 2026 Parralex-Labs
+ *
+ * This program is free software: you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation, either version 3 of the License, or
+ * (at your option) any later version.
+ *
+ * This program is distributed in the hope that it will be useful,
+ * but WITHOUT ANY WARRANTY; without even the implied warranty of
+ * MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the
+ * GNU General Public License for more details.
+ *
+ * You should have received a copy of the GNU General Public License
+ * along with this program. If not, see <https://www.gnu.org/licenses/>.
+ *
+ * Source: https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator
+ */
+$docroot = $docroot ?? $_SERVER['DOCUMENT_ROOT'] ?: "/usr/local/emhttp";
+$pluginName = "unraid-docker-orchestrator";
+$configDir  = "/boot/config/plugins/{$pluginName}";
+$configFile = "{$configDir}/config.json";
+
+$config = [];
+if (file_exists($configFile)) {
+  $raw    = @file_get_contents($configFile);
+  $config = $raw ? (json_decode($raw, true) ?: []) : [];
+}
+// Normaliser settings/prefs — forcer les objets vides en stdClass pour json_encode → {}
+if (!isset($config['settings']) || !is_array($config['settings'])) $config['settings'] = [];
+if (!isset($config['prefs'])    || !is_array($config['prefs']))    $config['prefs']    = [];
+$config['settings'] = array_merge(['services'=>[],'timing'=>[],'pauses'=>[]], $config['settings']);
+// Forcer {} au lieu de [] pour les sous-tableaux vides (évite SyntaxError JS)
+foreach (['services','timing','pauses'] as $k) {
+  if (isset($config['settings'][$k]) && is_array($config['settings'][$k]) && empty($config['settings'][$k])) {
+    $config['settings'][$k] = new stdClass();
+  }
+}
+if (is_array($config['prefs']) && empty($config['prefs'])) {
+  $config['prefs'] = new stdClass();
+}
+
+// ── Détection langue ────────────────────────────────────────────────────────
+// Priorité : 1. cookie (choix manuel utilisateur)  2. locale Unraid  3. 'en'
+$supported_langs = ['fr', 'en', 'de', 'es'];
+
+$unraid_lang = 'en';
+$dynamix_cfg = '/boot/config/plugins/dynamix/dynamix.cfg';
+if (file_exists($dynamix_cfg)) {
+  $cfg_raw = @parse_ini_file($dynamix_cfg);
+  $locale  = $cfg_raw['locale'] ?? '';
+  // locale="fr_FR" ou "fr_FR.UTF-8" → extraire les 2 premiers chars
+  $locale_prefix = strtolower(substr($locale, 0, 2));
+  if (in_array($locale_prefix, $supported_langs)) {
+    $unraid_lang = $locale_prefix;
+  }
+}
+
+$lang_cookie = $_COOKIE['lang'] ?? '';
+$lang = in_array($lang_cookie, $supported_langs) ? $lang_cookie : $unraid_lang;
+
+// ── Détection conflit démarrage automatique Unraid ──────────────────────────
+// Unraid stocke l'autostart dans /var/lib/docker/unraid-autostart
+// Fichier texte : un nom de conteneur par ligne
+$autostartContainerCount = 0;
+$autostartFile = '/var/lib/docker/unraid-autostart';
+if (file_exists($autostartFile)) {
+  $lines = array_filter(array_map('trim',
+    file($autostartFile, FILE_IGNORE_NEW_LINES) ?: []
+  ));
+  $autostartContainerCount = count($lines);
+}
+// Conflit = au moins un conteneur avec autostart Unraid activé
+$autostartConflict = ($autostartContainerCount > 0);
+?>
+<link rel="stylesheet" type="text/css" href="/plugins/<?=$pluginName?>/css/udo.css">
+
+<script>
+var UDO_CONFIG     = <?=json_encode($config, JSON_UNESCAPED_UNICODE|JSON_HEX_TAG)?>;
+var UDO_AJAX_URL   = '/plugins/<?=$pluginName?>/include/ajax.php';
+var UDO_LANG       = '<?=htmlspecialchars($lang)?>';
+var UDO_CSRF_TOKEN       = '<?=_var($var,"csrf_token")?>';
+var UDO_AUTOSTART_CONFLICT        = <?= $autostartConflict ? 'true' : 'false' ?>;
+var UDO_AUTOSTART_CONTAINER_COUNT = <?= (int)$autostartContainerCount ?>;
+</script>
+
+<!-- ═══ HEADER DSM ═══ -->
+<div class="udo-header">
+  <div class="udo-header-left">
+    <div class="udo-logo">
+      <div class="udo-logo-icon">
+        <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAEAAAABACAYAAACqaXHeAAAdrElEQVR42pWbeZBlV33fP+ecu7y9956ZnqVHGu3LSEhCAmFAMQgTuyCuUHbKSdkVJ67YSeykYoNjqpIqZ/uLVCUpuyqUnbJTDsbBKQwYG2MI9gAGBFoZaSTNjGbv6eX1/vpt996z5I+7vPu6R4K0qjWv33v33vM757d8f7/f9yfa7TUHAuccQgoEAucsIBBCAGCtLV6Xf4QQOAfg9n2QviUE2ef5d1354+Ke+ftj900/4K1+yvfM7pi9T2ldgn1vFi+FEHiQ/iWEAAfWpcLmNy8ekMtfPFCUHjx6ryy0cyNpy6IUS35TAd9acG55vSi9Dw432mDr0k/ztbjR9TI/qrLA6QaMHpBvTrougRAyu4EtPVyUNGJ0uiVpi419M20qC4A7INctv3tA87KHivy/krC5VhYLEyDzq6xNhVFKAg5jLOCQUh7QBlesUBQPHlfHW59ufg+XPfxNBeEWwos3O3k3ZnYuUzshBMYYrBvJYK0tVD/VfJCI0cLSL8rsiw4pFQDGGIQQSCkPrEiMPfiHPKXSCQshyNcgBNmvKB2S+AHmIdINdQefud/HSClxuLG1yvxCpUbCwuhvaw1CZBePmUhZlbNTzR4CDucsUoqRzonRzv+gg3djZplq4uhZoti0/D1R0mKpZCaHRimFUiqTySGVzJz8SGtkWYWstelNMpUxxoAQKOWRJEmhJTZX5cIsRj4k1RYJCGzufBhpiSD3wIxOw40iSm5dAtLnAEJKjDbF5oPD2fGTzA8gt/Nck40x2WEKjDbjh2Rd7gMc1qQ+wPM8nHNorZFSIoUsXgspCiEOmAICKWThH3JzKcJrSWMKTUAUDressvlmCkBJhTUWIUAphYN0Y/d9F5cKZqzBWofneSVTlmN+rqxJXjlsKCkRgswBZjc06c57npe+xuEpr/ALuXOx1uJ5Cl95JIkGZ1DZIkxiMvt7a8UfhXOHwCGEJEkShADP83HOYo0dc8xljGKtQYr0syRJiu8lSYJSamxT8rV7+YOVVIUKSymRMj15IQS+76ONRgiJylSr7HDSjdLEcYLyPKRSIARSKXypivsVmlDCDIXoLj0Jh8Nah3Wp+kpjCnySJLok/DhYK0JwHr7FyMzGnKMoQxqXAqGxz+XoVFPPn/qCVMVLaE4KnLEkWuMFIZVaHaU8lJRpKBW5MyzBpVJM3g8gBYAUmQMmVc3CLFwRwowxaK0ZDAZI4fAyn2StRWWaCeB7PlongMDzfYzW2XfUWGQQ6+vtsQhWVi3PUxiTqrfv+1hrcA6kSp2SUB5hJaQSVjCZU7IuPT3nRqctsvgmss0uTr4MtHJTzHYmxwupowVJtqdCoKRAZhGrs9tBijRk5/aer79s++MhvCRvu912ZVBTjpm50yheZwJprfHCCq1mg0QbYp1qiFIKqUTh5OT+eJc/RgiwFhF4qbdPNKmIIx8wDqAotMDY9F9cekBKCnZ3O0g3MkvPS6NWEARYa4njGN/3x8J4vvEiT4YOrFJkGFqMgIaUqVOSQchEq0m3P0Qqj8BXBb7J4TLZiRUwuozmrEMGPoMLz4GQVO96BBslhdmU0ww3hjwZhUwcsdZgLbUwYGe3A9aglMRZRxAEGKMzDUgRrsn82DgQGksiSnE1F95l8VIKtNZY6dFqtuj2h/ieT+CpIoo4BzaLyVaAcalDG7MxaxC+It7cIn7ld4he/h3izS2kp8DpcdhMetKiHCEgMzFH4Hko5dHtR7QmWhgnChwQx3GGAyzWmixSZQ5fqZF2l09+f/qaq7+UqS8Yxppmo0F/MERJbyzuO5deHFtHO3Fc7xluDiybiSNyKagBEH4IxtH97u8xc9wxe9zQ++7vpxsehJkXNziGJPRARVj0gdRYIHA2BTxSKQaDiFazySCKS65+hD/yLDcP30qlUcnb74ykFIWq+75PksSEYYVeL0Jk4c1Z8AK1D+k5DLDc0/yv8yt0hGDC96lgeXK+yZNHWhAnmP4myfYa/XN/iX38dnCW3qtfIbjrA3gTc3j1SZyveWX9FbaSFaaCQyy2jtHyJ7EmKGWirnCavucxjCwIiZOKJEkIw6BI6IprMoCmtS4sUo554sxDax0XX3QOkjjCCUm92WQYJXi+VyQvZfPsWUdbCzb6CTcxnF1q83wcc2mjgwx9Ot//Elt/8k+RjSnUuz9O99Im3UtbqHf9OlRbbH32l+m8/BXwa9zYvs71rYvc7D/Hs2vf5NWtcyRyG0tSCO6K4obD9zwGcUyj0cDmn7uR8KNCyyijtdYii+JHBofjOEYIVXhLz/OIE80gSvCkLPL6/EYis/Wug+Wh48yFZXYnfAIhkNYxuzfgsduPsvvaS4jzn2FxMWTwzO9SPXQMFc6iqrNUD5+g9zefZPE2hbzwaToXnuWJux7hWOMUa22fjd5NLvee4btLz9G3m1iGKcApRS4hBc46lFIkxpAk8S0KO6Nr8qxT5vExTx6U5405orw85RA4l5pImkiQxXxHH8H53YQ/PHuV5xqC7tUNBm+sw0yDJ+anONHy0FvLJF1HvC3pbWwhTQQnn4ATT6D0kMF2h3hLMtxNMFtbtORRHl88zfsePI3UR1hrG3q8zpmrZ9jSKyBiHBbrLDYLHEpKnANtU1ToeWoM+rpbpNTqV3/1V38TQDiXQlhG4MU6i7MWa0B4Hr4flIomqU0NgKWB44/OXeP7VUFwvs177rmNE4emme0P+fF7jzInLf7xe7GJQfZ28d7zy9SO303iN7HTJ6ks3IOcvxOW34A7nqbx+E/iGYNLQjxZ566jUzgnOXtlg9bUJivbXeaaM/giRKDG0mGX4RQlQGaIVnnqYF0uxwFra2tuLAMr/k0DuTWabn9IUK1TrVZTaCkVCEdkHStG8annL/FcXdE63+a9b7+Hh45NMR1FTFd9DjUCertdmo0acafNYHcLb2qBaq1B1U83fBgn9Ac97O4KqjmP15xBDHehOYEZDBgku7jKFpe2LvONc69z4lgflSzy1G1PEboZJB44h7ap0+sP+ujBgHqtkuICxwHZXOZAvAPFzyx5sNYgpcDzfGLdReUJRhbztbX0pM+3XrvJ96TGP7/OU4/ezWNHJzgc9Tkx20JHQz7zp1/ni995hftOHuEffujdnDx5L0oI1ocJ//X718DBL9y7wNzEBLvNSdzGNeyXPwGd87jbP4J6+KeoNQ7T3xOcmhLEdzu+8eoLnDh6hbNr8zx25FFs0kjtOTdXB4kx+L6H1iYrzqiSjAIhMlS41l5zY0gtQ1pCpMDH8zy293oE1Tq1SgUpBEIKBgjOtfv894tLtHtD3tls8v7H7+BhD+YbAf/3Wy/yB3/xHfZkhYnpKbr9ARUJH/nAE9hWg89cXmXm+ByegPaNdT5y8ggfsS/C2U+i65agUWO40mbQm0Y89kuED76P7rCDlm9w5vWXWdl7g8lmgycWPsCx2u0IF+CsxTjHYDAkGfaYbNZvmUEWpTwYmcDILtKCwyiRMOx2B9QaLYIgSB0NsI3H7z/7Bl/uR9yx0+cf/J138FjFY/PaVf7n587w8soOrfl5nHX0o4SZk8cwU1Nc2Oxw6u7DHL93kQteiHBwt4m4/vo16le/z7+4d4u32Zdg6TI2DLESOst7xOHD+D/yiwyPLRLZV/mjM2doTK1zuHqaHz31fmTSAgfGpZFs0O3QrFVTv7YvByj7APWxj33sN9+s4SBkCi33ekPCahVPeUgEWgoubvT5/Mo2g/UO73v4FA9MhHzh03/Kf/n0V+j4dVqTk+xsdXCVEHnsKNcNeM2AR99zP70TC7wUwTCx9LXhqpXMHpulduQ2Pn+xwuttxUOHFPV4E9HpUpupo9xNBt/7PHZzh+DkQ5jAcWnpBn51yGS4QNOfQLg0l0i0Jh4OadSqmXnbcTxQklWOl6koIUI5qr5IkUJZkeLwCMnLK1ssDWJOBAGLs01+5R9/nM995xx3PvII0V6XlRvLBK0Gnelp2hgeePJuGu98iO+IGhd3YwLrkGljAt85zncSXlYelSce4OIDH+JnbzzNF5PHoFrHrLSpDvscevsC/uU/Zvc//Dz3Tk8g5TTd4RbXtq9gZZRGrbxkxqiQK7IqUREESzsgx1tL4wXGHPCUC5gW2IsM5zsD+rsD7lyYId7cZGtvgDMJl185S2OqRa3ZwFRClrp9ApvgWc2uUkROgEkTE2sd1mQ9CG0YGElfKg6xx9U9j3934QR4dVSrRtKcZvXZm9iepp6sEOz0ODw3T6er2RzepG+62LzQmRUdtEntPz04V6oIiXI2uK/jxXjNPi9y5FVdIwSbvZibkaMaGxYOTVE1mubkJMZKNtY2WbpwAUxEq9lgZrJK9Z2nefGF88gvfZV7+ptMT9bZ0xBrS6wtXS2Ymmzw4HAL8eWv8ednLhLfdidzU3VMc5rNbsDy80uonTZTDUvQqhMPPU7OH2Y4FHSSTfp6DyltVqDPwjijbHZ/dTr/8d6q6VhUct3oQuscfemx/M3v4/s+Rw6/B++NdXSSMNwb4KxFej5Ll64xVBXMXItlrUgeeRSxscr2V77NocPT3P/k27ksqzgHD7oBg78+w4tXtugs3EZypI7pxsT9Pqvnd5CXrzHTELiuJd4YoI1CWh8hNb2BZDAccH7lCpUjDapMY0xWDpcSM1YJ3i/nm2zAeCvLjjVBEyfZ7vRJGlUmqhV84/CwmEQjpCDqD9BxRLXZYK8/IBpWkdqyvLFDtzXN3LvfzbWL56l8+nMcf/xhPAFvfOss61NH0acepLvbI9po0zhyCN3tUvM2CDxB0h6mRcyWj+8Elza2+Mrya9RaAr/q+Prlr7Gxu8uH7/9QVkR1YxWt8qnnQMi50gaMd3XHM71RrQ/6SL7+8iWSI8fpmQGby5ucCPy0WCJUAaT6nT28rJprjKXiK/Qg4npvSOvkXUyfvI1X//JrdPsCHnmCXpQwXN5EKYnyFVpblLPIyBJtD1HKpqpsLHGUUPdrzFfqXFte4bsvOR64p8qRqbm0bgkEvp/WLrOaZm4SlAu7Io8C4mDXO7caz/PwvKxkLhXnljZ5fscwePEC2xtDnlvvsteLMFrj8tzBGoSSWGPQg2HaxbHppgaeZG99l2UdUr1jEXl4ga2dmH57B5lldE4bnLaY/hBnTOrEtMVph9OWJNbMtSa4ffJ+hJAcPS5Qw3nuPXI7xoyau866sUbMQWcnsiiwrzwtMsibhz2tDWnKJfjmuRts7PRovONBKpMNXrqyxtJmBwWYxEC2CUkUkUQxJk6wSZqckFh0LwHtIIoZ9AboXh831BBbTDfGJRoc6DjBao0eJOieTa/Jf40jigynjszhBg166z5vW7yf0DXByaz9llanyxqOONhu9w7aPWOF0LwdZgGnNe87fZJGuMaXdyPinS1+4tG3MSN2SaIYlI9NDNrEaYMyirFRhBdWiVY3UNqBp3ACXMWgY50KHBtcpEFITD8BYQibM0TDBOPHmG6ClQblC1RF4LTCWo0fJFy90kUKnxMfPI4wlSJFl0IgZZYO48aDfync3RoelVTCWofvqbRh4iwPHa7zY4/dxowniapVqlM1IiHY63RRnk88HGC1Bmcx/R7x9i72pRdotRpYIbH9AUQxdhhjE42J0k1w2mCHQ6Rz1Cem6V29yezeTbzeAGvS70V7BqkkurMLKuLyyhrHT2re/eQ0UtcQyALj21KC92at+rzfMNZiLmuBEAJrzFhlVxrNdCi4o+kTByEvvXKFyVMnedfj97OxtoJXa1IJA5zRDNdXafpV4r/6NuYv/oQpb0B1bhqnLW4YoROTblYcIRNDdXIKEQSIl77GP1//H/z2yQsMV7awiSGoB9RnYXVpm43b/jbq1CFeu3SZxqRjsjpDxa9k6xw1QtLizYidcivughwjEezr0lpr8XwfkZXE87BQ8wWnZxvU6lVevb7FVuz4+L//Nf7Tb/wjZmqw0+0T1CeQSczg4muEBiq7huSzX8B//htU6pJgagqdxNgoIWhM4tVC7I1zvO/CH/BHJ/6af908R3jhPDbRNKY9hoMOl6JFtn/6kzR/7T+zlexwY/0m1UrIbOUovgyLqKVNmgK7woTH5Sv7BfXRj370lslQmTLT70dE2lCt1dKOjJR4QcArS1tcimBGRxxbnOPxU4t86Ol3EirLy6+8Trc3pNFoMthcJzQxsjYJy20aV1+n60sCq0k6mmG/y+Ib3+Q35Jf5N4sXmN1dY+P6FhNVh4k6tOMWG0/+Co1f+gStB08ThsucOXuWLX2dyeosjx97nLqYwZr0pAfDPqGS+Fl5r+AD7NN0Ibh1Npj22FInonWCtZZ+rKnVaxhj8ZVABT7DzoAXY8HOjQ1OnJynIixHaxX+1o88xuNvu5etdpvzV5bZ296it7vDqSmff/svf5af/+C7iV56iRfOfBu3usTP3TfNf/xnf4+7Tt3N9W98F335HH53QKRhafHD+L/0W8x/8KeoeobELrM6XOarLz7H9LxhsXaae+fvw7NVdGIQSrC7u8tko47ve0WTd7w6XDrssYLILbQgt/0ry23mDh1COAjDgNg6rvUt/+3rl3im63iMIT/399/Fie4ec76jEqSm8xdf/Rs+9Yef5x1PPsYv/OxPUgt9rINms8UzL76K50kef+ge9jodBs5j0B+w/dlP4l75NpWf/CdMPvljVIRG6AE9t4NprvK7XzhDeGiFBkf58H0/QUss4MuQ4TBCeYrVlWWOzc9QrVZSPOAsQpbIMOUGULEBpeZeXiEGh+f5JEnC9dV1qvUmE80mxlo8X7FnJd+6vMNvvbjErlY8NePz4x88zYlulyNVgRIO5floY/CVQicJtUrI5m6Xc5euo21a1Q2UxwN3LDLbqtGPEyIVkGhNxVP4eojG0DVbqMlN/vdXn2WT89QqIe9d/AD3zTyEsrWUlCEkve4e6JjZqRZCypRhUjBFxFhbXgiBLLPMclUp9wRyhsjcZIvd3Q5OQKw1CkHVGR46MclP3z5Dpar46+UuX/rS91lp1FmKoReDSRKEtSRJTCUIuHBtmS996wV832dhbppj87MEgc9XnnmBCzfWCD2fahLRcDEVMSSREQOxgZxo84d/+W3WzCVaExXumX6Uu2buwukQiSDRafKztb1Do1bFD4I0Jyh4Dpmobpyu4+X6sJ/ymvbRcuqLR10phNuivbXFoZkZBsOYMAyYcYanTy/QHVzl/8Sar29rep99ng+8/37uaPjMREOaPigB1cDney9fREjBO0/fQ5IRL5QQnL96k+fOXeC+24/RGw5QYcSXz3+P+ZmQZt3yhS+eZVC9SbVqOe4/zHtufwcibuFLRX8QEYYh2zs7qdZ4KTNMeR4mb4MVXWo31v8U7XbbjdFhHWPdlIJnE8d0BwOW2jssLh7HZNi+Egb0Y8O69firszf546s7rCeO25OYH33sJA/ffYgFzzERRxxqVvj8157hxvoOgSdRQmCsJQh8cJaJRpWPPP0uevE237vxPGe7Z9heDdjc7jNzW5+GnOTO+oM8eeoxQj1L4AXEscZYh7GW5aUl7lhcIPQ9jEkPrhzRcgcgSjQA7wA4ECNNyIXXWiOkZKLZJE40Fy5f5Z67ThFFMVEcU/F9DiWGpx9aYKIR8Gevt3nNr/Gp713l2ddu8s57DvPkySmmkXR6PTrdLg/dcwdKKWphwOxkg2fPvkacGJCG9mCFZ1e+y421ARNzQ04uSExnhrcfe4LTC6eRcRNPBQziBGMstUrIhTcuM9uq4yuFUh6I1L/kTDRX5uAKUUBjr0x/Laoo+8BQTnJyztGs12h2+1y8dIV77jhFbzjEmIhKpcKcNrz31Cwn5yf42itLPCM0ryWCF751jdXlbe798GkEUAkCLl1bIo4TatWQG8urXL+5wlNPvA3lwTcuvEAUbLLdcdTmNYOdOf7uQ+/nsH87MmoQ+D79YYRz6b0uXrrCTKvO3PQk1jm00XhKYa3MSmFZU0SMnW+pJFZiXeZNx3LOXOYNBb7H4pF5WmHAy6++jpISz/Po9voIZ5lUljubip95x+38q3fcxs8sNnj7kTqHJitIB0kUc+PmKq1mkztvO069WuWuEwt84td/kd1Oh28+e477jt5BUx/j0QcOUfdaKBfQ4gihaAGC3U4fT3n4SnH+wkVCCTMTTQLfx1MeIiNpHqQbi4JaW9Q9U45QqRjqDvJs9ycTzjkGw4il1XW2ewOOHzvK5MQE/WEEzlCrVLAOIgM9J+nHmqqCY5N1fu8zf8ZWd0gQhsTRkNX2Bu95/CE2t3aYnGjS7Xb4uZ96itXOTfqmxyCOqXsNZsJD6EghpKQSBGxsbrO6usqhmQnmpyfxVUrPS2m94hbtMFECebJMlx/R1katYzFGKr4VC9z3FCcW5jl5eI6bSzd59fxFhHNUwwrdwZA4ial6MO0ZFqow5YEzmgfuOsm1pWU63QHzs7PMTU/x53/1bZQf8vql6xydnwNdoSEOsxDeyanWvUx7C0QDge+n3Z/LV66zurrK4ZlJ5qYnqYQhylMFA60s/H4avpSp401bZeXm6Pj/CgeSs0XHdi2rESAEcRTT6fVpb+3Qi2IajRZHDh3GOkOiEyphiK9SNonF4imP85dv8PzLF9jqdBFS0qpXiZOEY4fnefpdj+CsRXkSrQ2DYZyqtie5ubJKu73OzGSLo/Oz+Erg+x5hRq3JmZLGaKRUBSUm918F+VNK/Kx1XoTBMvPburzXnlZXPc8vkKGUKtuc9Hk24+QjFVvbO1xfaWOl5OjCYVqtCYbDGJylWgmRMmtXSw+pJLHWGQ6QaJvmGCYrgQ0GEUJIworPxtY27bUN6qFiZrJFLQyp16oEYZDyiKUgSTRhEKS0WE+lpbmc3J2BISUVWqdMsiJHWFldc4HvFbyZ/WVx3/czqsyoazyqLaXOpFatMRwOGQyGGGvp9PrcXNsA5XPyxHGCIGAQDfGVIgz9gvpakJ3yAxCOODYkiaFSCYjimLV2m6jfZ2aixfzMJLVqpQAzKXlzRIDQ2hAEAYmOkUKWZLFZv1MVwhcOf63ddikrfLQQKSWD4RBPKZTnEccxlTAkTjRSjDuXIAgZDodYm9LSpZQMo4i9bp+dTpfNvS7N1iRH5udT8oLRIFJitizotGkR0zgIPIUUktV2m82tTWZbTY4emiPwU4qrnzVoUw6gOBiulaTX7dFqTaB1gtYJvh9gM/a5NelMQRHlUhOweJ4/UpdseixJErTW6U7n3Dw/zFij4CmFsYYkToqhC23SKo9UCq01G9u7rG/vMkws0zPTTE1MIJXCZYRoBKisd2eNYbuzy8bmBvUwYGF2hjDw098wTEdgMmg+mlkS+2ixqcnuB3g5bziPEGNU2f2Eo5wz5JwpSsrW2SKzknJkAiPyoRzLHYQQxHGckim0YXVji43dDtpB6FeoVip4vl90c4fDIcPhgHoYMDc1Qb1aoVYNCfwg7fEJWRAc8/RWIEY1fyFw1maN0JRHLJUq5h1GCdGoRA8C0V5fdyLbTWsdyvMQOOIkSdvhMufbewe8qihFjTx3KI/e5A+N4xitNYmx7HV7dHp9BlGMNqkj8qSgUatSr1ao1yrUq9VCG/fj+VGXx43BnPyAcsq/73spYUrrwjTzzDZvmOL2A6F9oCdvjSnlZUjQFK/3g4tca1KChSla0uWNSJKkmOhICxWjnMNTslhoOQ+xNs0Yyx2d/a2usk8qEyNzbR0fBCtNweFGTFEhBFKlnACcK6Y9ymzaMs/m1lVWl1WUJQgxNn+UT514eAXiHNOifW3rEUFbHRD8rSbUhEjzlkQnSJHTfA/6jrzyLffT2XNuv7Gjk0s9rjswG/iWk55FaKPUmxv154sxvHIHusxRvsVYrfsBo7S59qSd4bLap/zH0XTcqCgyzhQtVU/yaorDpfW0MYfDrQcX9y9yrL5wcK+EGIff5etvORH2Q4zSjuYPR2ouZUrnl0oSBAFBEIxGZsoUUseITzOaxnJI5BjpYHw94gCp4ocdAXbuVkOVbryJJ0A4wQ/7Ux77dc6lWCMfCYxTeJ+P1ZQYIqKkQqLgBBR/7594ED/EggRvYacHBy/LA3jlNFzw/zE7fGCqdTQiW6b+5RGlMIFbjaO+5e3dvo7rLZcwPqm1X6XHnZk4MJjuSpT4A8v6Ab6gPIa7v86536f8Pyu7X5niUxfQAAAAAElFTkSuQmCC"
+             alt="DSM" style="width:36px;height:36px;object-fit:contain;border-radius:6px;">
+      </div>
+      <div>
+        <h2 style="margin:0;font-size:20px;font-weight:700" data-i18n="app_title">Unraid Docker Orchestrator</h2>
+        <div class="udo-subtitle" data-i18n="subtitle">Gestionnaire de démarrage ordonné des conteneurs</div>
+      </div>
+    </div>
+  </div>
+
+<!-- ── Bulle d'aide ─────────────────────────────────────────────────── -->
+<div id="help-bubble" class="help-bubble" style="display:none">
+  <div class="help-bubble-inner">
+    <div class="help-bubble-header">
+      <span class="help-bubble-title" data-i18n="help_btn_title">Guide d&#39;utilisation</span>
+      <button class="help-bubble-close" onclick="toggleHelpBubble()">✕</button>
+    </div>
+    <div id="help-bubble-content" class="help-bubble-content"></div>
+  </div>
+  <div class="help-bubble-arrow"></div>
+</div>
+
+  <div class="udo-header-right">
+    <button id="btn-help" class="udo-btn udo-btn-help" onclick="toggleHelpBubble()" title="Guide d'utilisation">?</button>
+    <div class="udo-lang-dropdown" id="lang-dropdown">
+      <button class="udo-lang-trigger" id="lang-trigger" onclick="toggleLangDropdown(event)" type="button">
+        <?php
+          $flags = ['fr'=>'🇫🇷','en'=>'🇬🇧','es'=>'🇪🇸','de'=>'🇩🇪'];
+          $labels = ['fr'=>'FR','en'=>'EN','es'=>'ES','de'=>'DE'];
+          echo htmlspecialchars(($flags[$lang]??'🇫🇷').' '.($labels[$lang]??'FR'));
+        ?>
+        <span class="udo-lang-arrow">▾</span>
+      </button>
+      <div class="udo-lang-menu" id="lang-menu">
+        <button class="udo-lang-option<?=$lang==='fr'?' udo-lang-option--active':''?>" onclick="setLang('fr')" type="button">🇫🇷 FR</button>
+        <button class="udo-lang-option<?=$lang==='en'?' udo-lang-option--active':''?>" onclick="setLang('en')" type="button">🇬🇧 EN</button>
+        <button class="udo-lang-option<?=$lang==='es'?' udo-lang-option--active':''?>" onclick="setLang('es')" type="button">🇪🇸 ES</button>
+        <button class="udo-lang-option<?=$lang==='de'?' udo-lang-option--active':''?>" onclick="setLang('de')" type="button">🇩🇪 DE</button>
+      </div>
+    </div>
+    <span id="autosave-indicator" class="udo-autosave-indicator"></span>
+  </div>
+</div>
+
+<!-- ═══ BARRE D'ACTIONS ═══ -->
+<div class="udo-actions-bar">
+  <div class="udo-action-group">
+    <span class="udo-action-label" data-i18n="section_import">Import</span>
+    <button class="udo-btn udo-btn-primary" id="btn-import-docker" onclick="importFromDocker()">
+      <i class="fa fa-download"></i> <span data-i18n="btn_import_docker">Importer depuis Docker</span>
+    </button>
+    <button class="udo-btn udo-btn-secondary" onclick="showJsonImport()">
+      <i class="fa fa-file-code-o"></i> <span data-i18n="btn_json_manual">JSON manuel</span>
+    </button>
+  </div>
+  <div class="udo-action-group">
+    <span class="udo-action-label" data-i18n="section_classify">Classification</span>
+    <button class="udo-btn udo-btn-secondary" id="btn-classify" onclick="classifyAll()" disabled>
+      <i class="fa fa-magic"></i> <span data-i18n="btn_auto_classify">Auto-classifier</span>
+    </button>
+    <button class="udo-btn udo-btn-danger" onclick="resetSession()">
+      <i class="fa fa-trash"></i> <span data-i18n="btn_reset">Réinitialiser</span>
+    </button>
+  </div>
+  <div class="udo-action-group">
+    <span class="udo-action-label" data-i18n="section_config">Config</span>
+    <button class="udo-btn udo-btn-secondary" onclick="saveConfig()">
+      <i class="fa fa-save"></i> <span data-i18n="btn_save">Sauvegarder</span>
+    </button>
+    <button class="udo-btn udo-btn-secondary" onclick="exportConfig()">
+      <i class="fa fa-download"></i> <span data-i18n="btn_export">Exporter</span>
+    </button>
+  </div>
+  <div class="udo-action-group">
+    <span class="udo-action-label" data-i18n="tab_logs">Logs</span>
+    <button class="udo-btn udo-btn-secondary" id="btn-show-logs" onclick="toggleLogsPanel()">
+      <i class="fa fa-file-text-o"></i> <span data-i18n="tab_logs">📋 Logs</span>
+    </button>
+    <button class="udo-btn udo-btn-secondary" id="btn-show-settings" onclick="toggleSettingsDrawer()">
+      <i class="fa fa-cog"></i> <span data-i18n="tab_settings">⚙️ Paramètres</span>
+    </button>
+  </div>
+  <div style="margin-left:auto;font-size:12px;font-family:monospace">
+    <span id="status-text"></span>
+  </div>
+</div>
+
+<!-- ═══ IMPORT JSON ═══ -->
+<div id="import-panel" class="udo-panel" style="display:none;margin-bottom:16px">
+  <div class="udo-panel-header">
+    <span class="udo-panel-title" data-i18n="manual_import_source">Import JSON manuel (docker inspect)</span>
+    <button class="udo-btn-icon" onclick="hideJsonImport()"><i class="fa fa-times"></i></button>
+  </div>
+  <div class="udo-panel-body">
+    <div class="udo-import-cmd">
+      <code id="inspect-cmd">docker inspect $(docker ps -q) 2>/dev/null</code>
+      <button class="udo-btn-icon" onclick="copyInspectCmd()"><i class="fa fa-copy"></i></button>
+    </div>
+    <textarea id="inspect-paste" class="udo-textarea" rows="6"
+      data-i18n-placeholder="placeholder_inspect" data-i18n-placeholder="placeholder_inspect" placeholder="Coller le résultat de docker inspect ici..."></textarea>
+    <button class="udo-btn udo-btn-primary" onclick="importJson()">
+      <i class="fa fa-check"></i> <span data-i18n="btn_import">Importer</span>
+    </button>
+  </div>
+</div>
+
+<!-- ═══ BANDEAU DÉRIVE ═══ -->
+<div id="udo-drift-banner" class="udo-drift-banner" style="display:none">
+  <span class="udo-drift-icon">⚠</span>
+  <span class="udo-drift-text">
+    <strong id="udo-drift-title"></strong>
+    <span id="udo-drift-detail" class="udo-drift-detail"></span>
+  </span>
+  <button class="udo-drift-close" onclick="hideDriftBanner()" title="Fermer">✕</button>
+</div>
+
+<!-- ═══ ZONE PRINCIPALE ═══ -->
+<div class="udo-main">
+  <div class="udo-groups-area">
+    <div class="udo-section-title">
+      <span data-i18n="section_groups">Groupes de démarrage</span>
+      <div class="udo-section-actions">
+        <button class="udo-btn-sm udo-btn udo-btn-secondary" onclick="collapseAllGroups()">
+          <i class="fa fa-compress"></i>
+        </button>
+        <button class="udo-btn-sm udo-btn udo-btn-secondary" onclick="expandAllGroups()">
+          <i class="fa fa-expand"></i>
+        </button>
+        <button class="udo-btn udo-btn-secondary udo-btn-sm" id="btn-simulate" onclick="runSimulation()" disabled>
+          <span data-i18n="btn_simulate">⏱ Simuler</span>
+        </button>
+        <button class="udo-btn udo-btn-secondary udo-btn-sm" id="btn-dep-graph" onclick="openDepGraphModal()" disabled>
+          <span data-i18n="btn_graph">🕸 Graphe</span>
+        </button>
+        <button class="udo-btn udo-btn-secondary udo-btn-sm" id="btn-check-drift" onclick="checkContainerDrift(true)" title="Check">
+          <span data-i18n="btn_check_drift">🔄 Vérifier</span>
+        </button>
+        <button class="udo-btn-sm udo-btn udo-btn-secondary" onclick="addGroup()">
+          <i class="fa fa-plus"></i> <span data-i18n="btn_add_group">Groupe</span>
+        </button>
+      </div>
+    </div>
+    <div id="groups-list">
+      <div class="udo-empty-state" id="empty-groups">
+        <span data-i18n="msg_empty_start">Cliquez sur "Importer depuis Docker" pour commencer</span>
+      </div>
+    </div>
+    <div id="classify-result" class="classify-result" style="display:none"></div>
+    <div id="groups-wrapper"></div>
+
+    <!-- Panneau simulation timeline -->
+    <div id="sim-panel" style="display:none;margin-top:16px">
+      <div class="udo-section-title"><span data-i18n="sim_title">⏱ Simulation démarrage</span></div>
+      <div id="sim-warnings" style="display:none;margin-bottom:8px;padding:8px;background:rgba(255,211,36,.1);border-radius:6px;font-size:12px;color:var(--udo-yellow)"></div>
+      <div id="sim-timeline" style="font-size:12px"></div>
+      <div id="sim-total" style="margin-top:8px;font-size:12px;font-weight:600;color:var(--udo-accent)"></div>
+    </div>
+  </div>
+
+  <!-- Panneau dépendances -->
+  <div class="udo-deps-panel" id="deps-panel">
+    <div class="udo-section-title">
+      <span data-i18n="section_deps">Dépendances</span>
+      <span class="udo-pool-count" id="deps-count">0</span>
+    </div>
+    <div id="deps-list" class="udo-deps-list">
+      <div class="dep-panel-empty" data-i18n="dep_no_deps">Aucune dépendance détectée</div>
+    </div>
+  </div>
+
+  <div class="udo-pool-area">
+    <div class="udo-section-title">
+      <span data-i18n="section_pool">Non assignés</span>
+      <span class="udo-pool-count" id="pool-count">0</span>
+    </div>
+    <div id="pool-list" class="udo-pool-list"></div>
+  </div>
+</div>
+
+<!-- ═══ GÉNÉRATION SCRIPTS ═══ -->
+<div class="udo-scripts-area">
+  <div class="udo-section-title"><span data-i18n="section_generate">Génération des scripts</span></div>
+  <div class="udo-options-bar">
+    <div class="udo-option-row">
+      <label data-i18n="lbl_boot_delay">⏱ Boot delay</label>
+      <input type="number" id="boot-delay" value="60" min="0" max="300" step="5" class="udo-input-number">
+      <span data-i18n="lbl_seconds_unit">s</span>
+    </div>
+    <div class="udo-option-row" id="abort-row">
+      <input type="checkbox" id="abort-on-failure">
+      <label for="abort-on-failure" data-i18n="lbl_abort_fail">🛑 Arrêt si échec</label>
+    </div>
+
+    <div class="udo-option-row" id="dry-run-row" style="display:none">
+      <input type="checkbox" id="dry-run">
+      <label for="dry-run"><span data-i18n="label_dry_run">Dry-run</span></label>
+    </div>
+  </div>
+  <div class="udo-script-tabs">
+    <button class="udo-script-tab active" data-mode="start" onclick="switchScriptMode(this)">
+      <span data-i18n="tab_start">🚀 Démarrage</span>
+    </button>
+    <button class="udo-script-tab" data-mode="stop" onclick="switchScriptMode(this)">
+      <span data-i18n="tab_stop">🛑 Arrêt</span>
+    </button>
+    <button class="udo-script-tab" data-mode="update" onclick="switchScriptMode(this)">
+      <span data-i18n="tab_update">🔄 Mise à jour</span>
+    </button>
+  </div>
+  <div class="udo-script-actions">
+    <button class="udo-btn udo-btn-primary" id="btn-generate" onclick="generateScript()" disabled>
+      <i class="fa fa-code"></i> <span data-i18n="btn_generate">Générer le script</span>
+    </button>
+    <button class="udo-btn udo-btn-success" id="btn-install" onclick="installScript()" disabled>
+      <i class="fa fa-upload"></i> <span data-i18n="btn_install">Installer dans User Scripts</span>
+    </button>
+    <button class="udo-btn udo-btn-warning" id="btn-run" onclick="runScript()" disabled>
+      <i class="fa fa-play"></i> <span data-i18n="btn_run_now">Exécuter maintenant</span>
+    </button>
+    <button class="udo-btn udo-btn-secondary" id="btn-copy" onclick="copyScript()" disabled>
+      <i class="fa fa-clipboard"></i> <span data-i18n="btn_copy">Copier</span>
+    </button>
+  </div>
+  <div class="udo-script-output-wrap">
+    <pre id="script-output" class="udo-script-output"></pre>
+  </div>
+  <div id="exec-log-panel" class="udo-exec-log" style="display:none">
+    <div class="udo-exec-log-header">
+      <span data-i18n="section_exec_log">Sortie d&#39;exécution</span>
+      <button class="udo-btn-icon" onclick="clearExecLog()"><i class="fa fa-times"></i></button>
+    </div>
+    <pre id="exec-log" class="udo-exec-log-content"></pre>
+  </div>
+</div>
+
+<!-- ═══ PLANIFICATION CRON ═══ -->
+<div class="udo-cron-area">
+  <div class="udo-section-title"><span data-i18n="section_cron">Planification automatique</span></div>
+  <div class="udo-cron-grid">
+
+    <!-- Démarrage -->
+    <div class="udo-cron-card">
+      <div class="udo-cron-title">🚀 <span data-i18n="cron_start_title">Démarrage</span></div>
+      <div class="udo-cron-inputs">
+        <label class="udo-cron-radio-label">
+          <input type="radio" name="cron-start" value="At Startup of Array" id="cron-start-boot" onchange="updateCronPreview('start')">
+          <span data-i18n="cron_at_startup">Au démarrage du serveur</span>
+        </label>
+        <label class="udo-cron-radio-label">
+          <input type="radio" name="cron-start" value="" id="cron-start-none" onchange="updateCronPreview('start')" checked>
+          <span data-i18n="cron_disabled">Désactivé</span>
+        </label>
+      </div>
+      <div class="udo-cron-preview" id="cron-start-preview"></div>
+      <button class="udo-btn udo-btn-primary udo-btn-sm" style="margin-top:8px" onclick="saveCron('start')" data-i18n="btn_save_settings">Sauvegarder</button>
+      <div style="margin-top:6px"><span id="cron-start-status" class="udo-cron-inactive">Désactivé</span></div>
+    </div>
+
+    <!-- Arrêt -->
+    <div class="udo-cron-card">
+      <div class="udo-cron-title">🛑 <span data-i18n="cron_stop_title">Arrêt</span></div>
+      <div class="udo-cron-inputs">
+        <label class="udo-cron-radio-label">
+          <input type="radio" name="cron-stop" value="At Stopping of Array" id="cron-stop-shutdown" onchange="updateCronPreview('stop')">
+          <span data-i18n="cron_at_stopping">À l&#39;arrêt du serveur</span>
+        </label>
+        <label class="udo-cron-radio-label">
+          <input type="radio" name="cron-stop" value="" id="cron-stop-none" onchange="updateCronPreview('stop')" checked>
+          <span data-i18n="cron_disabled">Désactivé</span>
+        </label>
+      </div>
+      <div class="udo-cron-preview" id="cron-stop-preview"></div>
+      <button class="udo-btn udo-btn-primary udo-btn-sm" style="margin-top:8px" onclick="saveCron('stop')" data-i18n="btn_save_settings">Sauvegarder</button>
+      <div style="margin-top:6px"><span id="cron-stop-status" class="udo-cron-inactive">Désactivé</span></div>
+    </div>
+
+    <!-- Mise à jour -->
+    <div class="udo-cron-card udo-cron-card-wide">
+      <div class="udo-cron-title">🔄 <span data-i18n="cron_update_title">Mise à jour automatique</span></div>
+      <div class="udo-cron-inputs">
+
+        <div class="udo-cron-row">
+          <label class="udo-cron-lbl" data-i18n="cron_lbl_freq">Fréquence</label>
+          <select id="cron-update-freq" class="udo-select" onchange="updateCronPreview('update')">
+            <option value="disabled" data-i18n="cron_disabled">Désactivé</option>
+            <option value="daily"    data-i18n="cron_daily">Tous les jours</option>
+            <option value="weekly"   data-i18n="cron_weekly">Certains jours</option>
+          </select>
+        </div>
+
+        <div id="cron-days-row" class="udo-cron-row udo-cron-days-row" style="display:none">
+          <label class="udo-cron-lbl" data-i18n="cron_lbl_days">Jours</label>
+          <div class="udo-cron-days">
+            <label class="udo-day-btn"><input type="checkbox" value="1" class="cron-day" onchange="updateCronPreview('update')"><span data-i18n="cron_day_mon">Lun</span></label>
+            <label class="udo-day-btn"><input type="checkbox" value="2" class="cron-day" onchange="updateCronPreview('update')"><span data-i18n="cron_day_tue">Mar</span></label>
+            <label class="udo-day-btn"><input type="checkbox" value="3" class="cron-day" onchange="updateCronPreview('update')"><span data-i18n="cron_day_wed">Mer</span></label>
+            <label class="udo-day-btn"><input type="checkbox" value="4" class="cron-day" onchange="updateCronPreview('update')"><span data-i18n="cron_day_thu">Jeu</span></label>
+            <label class="udo-day-btn"><input type="checkbox" value="5" class="cron-day" onchange="updateCronPreview('update')"><span data-i18n="cron_day_fri">Ven</span></label>
+            <label class="udo-day-btn"><input type="checkbox" value="6" class="cron-day" onchange="updateCronPreview('update')"><span data-i18n="cron_day_sat">Sam</span></label>
+            <label class="udo-day-btn"><input type="checkbox" value="0" class="cron-day" onchange="updateCronPreview('update')"><span data-i18n="cron_day_sun">Dim</span></label>
+          </div>
+        </div>
+
+        <div id="cron-hour-row" class="udo-cron-row" style="display:none">
+          <label class="udo-cron-lbl" data-i18n="cron_lbl_hour">Heure</label>
+          <select id="cron-update-hour" class="udo-select udo-select-sm" onchange="updateCronPreview('update')">
+            <option value="0">00h00</option>
+            <option value="1">01h00</option>
+            <option value="2">02h00</option>
+            <option value="3" selected>03h00</option>
+            <option value="4">04h00</option>
+            <option value="5">05h00</option>
+            <option value="6">06h00</option>
+            <option value="7">07h00</option>
+            <option value="8">08h00</option>
+            <option value="9">09h00</option>
+            <option value="10">10h00</option>
+            <option value="11">11h00</option>
+            <option value="12">12h00</option>
+            <option value="13">13h00</option>
+            <option value="14">14h00</option>
+            <option value="15">15h00</option>
+            <option value="16">16h00</option>
+            <option value="17">17h00</option>
+            <option value="18">18h00</option>
+            <option value="19">19h00</option>
+            <option value="20">20h00</option>
+            <option value="21">21h00</option>
+            <option value="22">22h00</option>
+            <option value="23">23h00</option>
+          </select>
+        </div>
+
+      </div>
+      <div class="udo-cron-preview" id="cron-update-preview"></div>
+      <div class="udo-cron-expr" id="cron-update-expr"></div>
+      <button class="udo-btn udo-btn-primary udo-btn-sm" style="margin-top:8px" onclick="saveCron('update')" data-i18n="btn_save_settings">Sauvegarder</button>
+      <div style="margin-top:6px"><span id="cron-update-status" class="udo-cron-inactive">Désactivé</span></div>
+    </div>
+
+  </div>
+</div>
+
+
+<!-- ═══ DRAWER PARAMÈTRES ═══ -->
+<div id="settings-drawer-overlay" class="udo-log-overlay" onclick="closeSettingsDrawer()"></div>
+<!-- ═══ MODALE CONFLIT DÉMARRAGE AUTOMATIQUE UNRAID ═══════════════════════ -->
+<div id="autostart-conflict-overlay" class="udo-modal-overlay" style="display:none">
+  <div class="udo-modal-box">
+    <div class="udo-modal-icon">⚠️</div>
+    <h2 class="udo-modal-title" data-i18n="autostart_modal_title">Conflit détecté</h2>
+    <p class="udo-modal-body" id="autostart-modal-body" data-i18n="autostart_modal_body">
+      Le <strong>démarrage automatique Docker</strong> d'Unraid est activé simultanément avec les scripts UDO.<br><br>
+      Au boot, Unraid tentera de démarrer tous les conteneurs en vrac <em>en même temps</em> que UDO essaie de les démarrer dans l'ordre. Cela provoque des conflits imprévisibles.
+    </p>
+    <div class="udo-modal-warn" data-i18n="autostart_modal_warn">
+      Il est fortement recommandé de désactiver le démarrage automatique Unraid et de laisser UDO gérer seul l'ordre de démarrage.
+    </div>
+    <div class="udo-modal-actions">
+      <button class="udo-btn udo-btn-primary" onclick="disableUnraidAutostart()" data-i18n="autostart_modal_disable">
+        Désactiver le démarrage automatique Unraid
+      </button>
+      <button class="udo-btn udo-btn-ghost" onclick="dismissAutostartConflict()" data-i18n="autostart_modal_ignore">
+        Ignorer (non recommandé)
+      </button>
+    </div>
+    <p id="autostart-ignore-warn" class="udo-modal-ignore-warn" style="display:none" data-i18n="autostart_modal_ignore_warn">
+      ⚠️ UDO et le démarrage automatique Unraid seront actifs simultanément. Des conflits sont possibles au prochain démarrage.
+    </p>
+  </div>
+</div>
+
+<div id="settings-drawer" class="udo-log-drawer">
+  <div class="udo-log-drawer-header">
+    <div class="udo-log-drawer-title">
+      <i class="fa fa-cog"></i>
+      <span data-i18n="settings_title">Paramètres du plugin</span>
+    </div>
+    <button class="udo-log-drawer-close" onclick="closeSettingsDrawer()">
+      <i class="fa fa-times"></i>
+    </button>
+  </div>
+
+  <!-- Onglets -->
+  <div class="udo-logs-tabs">
+    <button class="udo-log-tab active" data-settings-tab="general" onclick="switchSettingsTab(this)">
+      <span data-i18n="settings_tab_general">Général</span>
+    </button>
+    <button class="udo-log-tab" data-settings-tab="timeouts" onclick="switchSettingsTab(this)">
+      <span data-i18n="settings_tab_timeouts">Timeouts containers</span>
+    </button>
+  </div>
+
+  <!-- Onglet Général -->
+  <div id="settings-tab-general" class="udo-settings-tab-content">
+    <div class="udo-settings-grid">
+
+      <div class="udo-settings-row">
+        <label class="udo-settings-label" data-i18n="settings_global_timeout">Timeout global (s)</label>
+        <input type="number" id="s-global-timeout" class="udo-settings-input" min="10" max="600" value="60">
+      </div>
+
+      <div class="udo-settings-row">
+        <label class="udo-settings-label" data-i18n="settings_boot_delay">Délai boot (s)</label>
+        <input type="number" id="s-boot-delay" class="udo-settings-input" min="0" max="300" value="60">
+      </div>
+
+      <div class="udo-settings-row">
+        <label class="udo-settings-label" data-i18n="settings_default_pause">Pause entre groupes (s)</label>
+        <input type="number" id="s-default-pause" class="udo-settings-input" min="0" max="60" value="5">
+      </div>
+
+      <div class="udo-settings-row">
+        <label class="udo-settings-label" data-i18n="settings_abort_on_failure">Arrêter si timeout</label>
+        <label class="udo-settings-toggle">
+          <input type="checkbox" id="s-abort-on-failure">
+          <span class="udo-settings-toggle-slider"></span>
+        </label>
+      </div>
+
+      <div class="udo-settings-row">
+        <label class="udo-settings-label" data-i18n="settings_log_refresh">Auto-refresh logs (s)</label>
+        <input type="number" id="s-log-refresh" class="udo-settings-input" min="2" max="60" value="5">
+      </div>
+
+      <div class="udo-settings-row">
+        <label class="udo-settings-label" data-i18n="settings_collapse_classify">Replier après classification</label>
+        <label class="udo-settings-toggle">
+          <input type="checkbox" id="s-collapse-classify" checked>
+          <span class="udo-settings-toggle-slider"></span>
+        </label>
+      </div>
+
+    </div>
+  </div>
+
+  <!-- Onglet Timeouts containers -->
+  <div id="settings-tab-timeouts" class="udo-settings-tab-content" style="display:none">
+
+    <div class="udo-settings-detect-bar">
+      <button class="udo-btn udo-btn-secondary udo-btn-sm" onclick="detectTimeoutsFromLog()">
+        <i class="fa fa-search"></i> <span data-i18n="settings_ct_detect">🔍 Détecter depuis logs</span>
+      </button>
+      <span id="settings-detect-status" class="udo-settings-detect-status"></span>
+    </div>
+
+    <div class="udo-settings-ct-header">
+      <span data-i18n="settings_ct_name">Container</span>
+      <span data-i18n="settings_ct_timeout">Timeout (s)</span>
+      <span></span>
+    </div>
+
+    <div id="settings-ct-list" class="udo-settings-ct-list"></div>
+
+    <button class="udo-btn udo-btn-secondary udo-btn-sm" style="margin-top:10px" onclick="addContainerTimeoutRow()">
+      <i class="fa fa-plus"></i> <span data-i18n="settings_ct_add">+ Ajouter</span>
+    </button>
+
+  </div>
+
+  <!-- Footer commun -->
+  <div class="udo-settings-footer">
+    <button class="udo-btn udo-btn-primary" onclick="saveSettings()">
+      <i class="fa fa-save"></i> <span data-i18n="settings_save">Sauvegarder</span>
+    </button>
+    <span id="settings-save-status" class="udo-settings-save-status"></span>
+  </div>
+</div>
+
+<!-- ═══ DRAWER VISIONNEUR DE LOGS ═══ -->
+<div id="log-drawer-overlay" class="udo-log-overlay" onclick="closeLogsDrawer()"></div>
+<div id="log-drawer" class="udo-log-drawer">
+  <!-- Header du drawer -->
+  <div class="udo-log-drawer-header">
+    <div class="udo-log-drawer-title">
+      <i class="fa fa-file-text-o"></i>
+      <span data-i18n="log_viewer_title">Logs d'exécution des scripts</span>
+    </div>
+    <button class="udo-log-drawer-close" onclick="closeLogsDrawer()">
+      <i class="fa fa-times"></i>
+    </button>
+  </div>
+
+  <!-- Onglets de sélection -->
+  <div class="udo-logs-tabs">
+    <button class="udo-log-tab active" data-log="start"  onclick="switchLogTab(this)">
+      <span data-i18n="log_select_start">🚀 Démarrage</span>
+    </button>
+    <button class="udo-log-tab" data-log="stop"   onclick="switchLogTab(this)">
+      <span data-i18n="log_select_stop">🛑 Arrêt</span>
+    </button>
+    <button class="udo-log-tab" data-log="update" onclick="switchLogTab(this)">
+      <span data-i18n="log_select_update">🔄 Mise à jour</span>
+    </button>
+  </div>
+
+  <!-- Barre de statut + contrôles -->
+  <div class="udo-logs-toolbar">
+    <div class="udo-logs-status-bar">
+      <span id="log-status-dot" class="udo-log-dot udo-log-dot-idle"></span>
+      <span id="log-status-text" class="udo-log-status-text"></span>
+      <span id="log-last-refresh" class="udo-log-last-refresh"></span>
+    </div>
+    <div class="udo-logs-controls">
+      <label class="udo-logs-autorefresh">
+        <input type="checkbox" id="log-auto-refresh" onchange="toggleLogAutoRefresh()">
+        <span data-i18n="log_auto_refresh">Auto</span>
+      </label>
+      <button class="udo-btn udo-btn-secondary udo-btn-sm" onclick="refreshLog()">
+        <i class="fa fa-refresh"></i>
+      </button>
+      <button class="udo-btn udo-btn-secondary udo-btn-sm" onclick="clearLog()">
+        <i class="fa fa-trash"></i>
+      </button>
+    </div>
+  </div>
+
+  <!-- Zone log -->
+  <div class="udo-log-viewer-wrap">
+    <pre id="log-viewer-content" class="udo-log-viewer"></pre>
+  </div>
+</div>
+
+<!-- ═══ MODALE GRAPHE DÉPENDANCES ═══════════════════════════════════════════ -->
+<div id="dep-modal" class="dep-modal">
+  <div class="dep-modal-inner">
+    <div class="dep-modal-header">
+      <span class="dep-modal-title" data-i18n="btn_graph">🕸 Graphe des dépendances</span>
+      <div class="dep-modal-controls">
+        <button class="dep-modal-zoom" id="dep-modal-zoom-in"  title="Zoom +">＋</button>
+        <button class="dep-modal-zoom" id="dep-modal-zoom-out" title="Zoom −">－</button>
+        <button class="dep-modal-zoom" id="dep-modal-zoom-reset" title="Reset">⊙</button>
+      </div>
+      <button class="dep-modal-close" id="dep-modal-close">✕</button>
+    </div>
+    <div class="dep-modal-body">
+      <canvas id="dep-graph-modal"></canvas>
+    </div>
+    <div class="dep-modal-legend" id="dep-modal-legend"></div>
+  </div>
+</div>
+
+<!-- DSM Modules — ordre de chargement obligatoire -->
+<script src="/plugins/<?=$pluginName?>/js/udo-translations.js"></script>
+<script src="/plugins/<?=$pluginName?>/js/udo-data.js"></script>
+<script src="/plugins/<?=$pluginName?>/js/udo-core.js"></script>
+<script src="/plugins/<?=$pluginName?>/js/udo-constants.js"></script>
+<script src="/plugins/<?=$pluginName?>/js/udo-render.js"></script>
+<script src="/plugins/<?=$pluginName?>/js/udo-healthchecks.js"></script>
+<script src="/plugins/<?=$pluginName?>/js/udo-classify.js"></script>
+<script src="/plugins/<?=$pluginName?>/js/udo-community.js"></script>
+<script src="/plugins/<?=$pluginName?>/js/udo-generate.js"></script>
+<script src="/plugins/<?=$pluginName?>/js/udo-simulate.js"></script>
+<script>
+// initUDO() est défini dans udo-core.js
+// Il est appelé automatiquement via DOMContentLoaded dans udo-core.js
+// Mais on surcharge UDO_CONFIG et UDO_LANG ici avant que le DOM soit prêt
+</script>

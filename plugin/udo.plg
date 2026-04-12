@@ -1,0 +1,98 @@
+<?xml version='1.0' standalone='yes'?>
+
+<!DOCTYPE PLUGIN [
+  <!ENTITY name        "unraid-docker-orchestrator">
+  <!ENTITY author      "Parralex-Labs">
+  <!ENTITY version     "PLUGIN_VERSION">
+  <!ENTITY github      "Parralex-Labs/Unraid-Docker-Orchestrator">
+  <!ENTITY gitURL      "https://raw.githubusercontent.com/&github;/main">
+  <!ENTITY pluginURL   "https://raw.githubusercontent.com/&github;/main/plugin/udo.plg">
+  <!ENTITY pkgURL      "https://github.com/&github;/releases/download/&version;">
+  <!ENTITY pluginpkg   "unraid-docker-orchestrator-&version;-x86_64-1.txz">
+  <!ENTITY pluginpkgmd5 "PLUGIN_MD5">
+  <!ENTITY supportURL  "https://github.com/&github;/issues">
+]>
+
+<PLUGIN name="&name;"
+        author="&author;"
+        version="&version;"
+        pluginURL="&pluginURL;"
+        support="&supportURL;"
+        min="7.0.0"
+        icon="tasks">
+
+<CHANGES>
+## Unraid Docker Orchestrator
+
+### PLUGIN_VERSION
+- Initial release
+
+</CHANGES>
+
+<!-- ── Télécharger et installer le package du plugin ── -->
+<FILE Name="/boot/config/plugins/&name;/packages/&pluginpkg;" Run="upgradepkg --install-new">
+  <URL>&pkgURL;/&pluginpkg;</URL>
+  <MD5>&pluginpkgmd5;</MD5>
+</FILE>
+
+<!-- ── Post-installation ── -->
+<FILE Run="/bin/bash">
+<INLINE>
+set -e
+
+echo ""
+echo "+=============================================================================="
+echo "| Installation de Unraid Docker Orchestrator &version;"
+echo "+=============================================================================="
+echo ""
+
+# Lancer install.sh pour configurer User Scripts et la config initiale
+INSTALL_SH="/usr/local/emhttp/plugins/unraid-docker-orchestrator/install.sh"
+if [ -f "$INSTALL_SH" ]; then
+  bash "$INSTALL_SH"
+else
+  echo "ERREUR : install.sh introuvable dans le package"
+  exit 1
+fi
+
+echo ""
+echo "+=============================================================================="
+echo "| Unraid Docker Orchestrator &version; installé avec succès"
+echo "| Accès : Settings → Unraid Docker Orchestrator"
+echo "+=============================================================================="
+echo ""
+</INLINE>
+</FILE>
+
+<!-- ── Désinstallation ── -->
+<FILE Run="/bin/bash" Method="remove">
+<INLINE>
+set -e
+
+echo ""
+echo "+=============================================================================="
+echo "| Désinstallation de Unraid Docker Orchestrator"
+echo "+=============================================================================="
+echo ""
+
+UNINSTALL_SH="/usr/local/emhttp/plugins/unraid-docker-orchestrator/uninstall.sh"
+if [ -f "$UNINSTALL_SH" ]; then
+  bash "$UNINSTALL_SH"
+else
+  # Fallback si uninstall.sh absent
+  rm -rf /usr/local/emhttp/plugins/unraid-docker-orchestrator
+  rm -rf /boot/config/plugins/unraid-docker-orchestrator
+fi
+
+# Supprimer le package Slackware
+removepkg unraid-docker-orchestrator 2>/dev/null || true
+
+echo ""
+echo "+=============================================================================="
+echo "| Désinstallation terminée"
+echo "+=============================================================================="
+echo ""
+</INLINE>
+</FILE>
+
+</PLUGIN>
