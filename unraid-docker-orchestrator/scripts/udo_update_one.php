@@ -185,6 +185,22 @@ $oldImageID = trim(shell_exec("docker inspect --format='{{.Image}}' " . escapesh
 $details = $DockerClient->getContainerDetails($name);
 $wasRunning = !empty($details['State']['Running']);
 
+// ROLLBACK — Tag l'ancienne image avant toute modification
+// Format : udo_rollback/<name>:latest
+// Supprimé après succès, utilisé pour restaurer en cas d'échec
+$rollbackTag = 'udo_rollback/' . preg_replace('/[^a-z0-9_.-]/', '_', strtolower($name)) . ':latest';
+$hasRollback = false;
+if ($oldImageID) {
+    $tagRet = null;
+    system("docker tag " . escapeshellarg($oldImageID) . " " . escapeshellarg($rollbackTag) . " 2>&1", $tagRet);
+    if ($tagRet === 0) {
+        $hasRollback = true;
+        echo "Rollback tag créé: $rollbackTag\n";
+    } else {
+        echo "WARN: impossible de créer le tag rollback pour $name\n";
+    }
+}
+
 // 5. Stop si running
 if ($wasRunning) {
     echo "Stop: $name\n";
@@ -196,6 +212,8 @@ if ($wasRunning) {
 echo "Remove: $name\n";
 $ret = $DockerClient->removeContainer($name);
 if ($ret !== true) {
+    // Nettoyer le tag rollback si remove échoue (container toujours là)
+    if ($hasRollback) shell_exec("docker rmi " . escapeshellarg($rollbackTag) . " 2>/dev/null");
     fwrite(STDERR, "ERREUR remove: $ret\n");
     exit(1);
 }
@@ -209,7 +227,26 @@ echo "Create: $name\n";
 system($cmd . " 2>&1", $ret);
 if ($ret !== 0) {
     fwrite(STDERR, "ERREUR create: code $ret\n");
+    // ROLLBACK — Tentative de restauration avec l'ancienne image
+    if ($hasRollback) {
+        echo "ROLLBACK: tentative de restauration depuis $rollbackTag\n";
+        $rollbackCmd = str_replace(escapeshellarg($Repository), escapeshellarg($rollbackTag), $cmd);
+        system($rollbackCmd . " 2>&1", $rbRet);
+        if ($rbRet === 0) {
+            echo "ROLLBACK OK: $name restauré depuis l'ancienne image\n";
+        } else {
+            fwrite(STDERR, "ROLLBACK ECHEC: impossible de restaurer $name (code $rbRet)\n");
+        }
+        // Conserver le tag rollback si le rollback a réussi (utile pour diagnostic)
+        // Il sera nettoyé lors de la prochaine mise à jour réussie
+    }
     exit(1);
+}
+
+// Succès : supprimer le tag rollback (l'ancienne image sera nettoyée à l'étape 10)
+if ($hasRollback) {
+    shell_exec("docker rmi " . escapeshellarg($rollbackTag) . " 2>/dev/null");
+    echo "Rollback tag supprimé\n";
 }
 
 // 8. Ajouter route WireGuard si applicable
