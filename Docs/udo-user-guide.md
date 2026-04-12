@@ -39,7 +39,7 @@ Le plugin fonctionne sans configuration manuelle : importez vos conteneurs, cliq
 ## **2.1 Depuis le gestionnaire de plugins**
 
 - Ouvrez Plugins → Install Plugin dans Unraid
-- Entrez l'URL : <https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator>
+- Entrez l'URL : https://raw.githubusercontent.com/Parralex-Labs/Unraid-Docker-Orchestrator/main/plugin/unraid-docker-orchestrator.plg
 - Cliquez sur Install
 - UDO apparaît dans Settings sous le nom UDO
 
