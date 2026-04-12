@@ -145,3 +145,29 @@ var appfeedData   = null; // tableau des apps une fois charge
 var appfeedReady  = false;
 var APPFEED_URL   = 'https://raw.githubusercontent.com/Squidly271/AppFeed/refs/heads/master/applicationFeed-raw.json';
 var API_BASE = '/plugins/unraid-docker-orchestrator/api.php';
+
+function sanitizeCheckCmd(cmd) {
+  if (!cmd) return cmd;
+  // Remplace les outils absents sur Unraid par des equivalents natifs (grep, curl, nc)
+  // Extensible : ajouter ici tout nouvel outil a sanitiser
+
+  // jq : non disponible par defaut sur Unraid
+  // Pattern 1 : | jq -ne 'input.status == true'  ->  grep sans jq
+  cmd = cmd.replace(/\|\s*jq\s+-ne?\s+[\'"]input\.status\s*==\s*true[\'"]/g,
+    '| grep -q \'"status":true\'');
+  // Pattern 2 : | jq -r '.field'  -> supprime (curl seul suffit)
+  cmd = cmd.replace(/\|\s*jq\s+-r\s+[\'"]\.[\w.]+[\'"]/g, '');
+  // Pattern generique : tout jq restant -> curl -sf sur le port detecte
+  if (/\bjq\b/.test(cmd)) {
+    var _pm = cmd.match(/localhost:(\d{2,5})/);
+    var _ph = cmd.match(/localhost:\d+(\/[^\s'"]*)?/);
+    if (_pm) {
+      var _port = _pm[1];
+      var _path = (_ph && _ph[1]) ? _ph[1].replace(/[\s'"]+.*/, '') : '/';
+      cmd = 'curl -sf http://localhost:' + _port + _path + ' >/dev/null';
+    }
+    // Aucun port trouve -> laisser tel quel, wait_for gerera le fallback nc
+  }
+  return cmd;
+}
+

@@ -212,6 +212,16 @@ function restoreSession() {
       });
     });
 
+    // Sanitisation générique des checkCmd persistés
+    // Remplace les outils non disponibles sur Unraid (jq, etc.) par leurs équivalents
+    if (typeof sanitizeCheckCmd === 'function') {
+      groups.forEach(function(g) {
+        g.containers.forEach(function(ct) {
+          if (ct.checkCmd) ct.checkCmd = sanitizeCheckCmd(ct.checkCmd);
+        });
+      });
+    }
+
     applySettingsToPauses();
     if (c.settings) applySettings(c.settings);
     if (c.prefs)    applyPrefs(c.prefs);

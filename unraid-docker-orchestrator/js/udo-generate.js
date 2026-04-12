@@ -50,30 +50,6 @@ function getAbortOnFailure() {
 // Remplace les outils non disponibles sur Unraid par des équivalents natifs
 // Actuellement : jq → grep/sed/cut
 // Extensible : ajouter d'autres outils si nécessaire
-function sanitizeCheckCmd(cmd) {
-  if (!cmd) return cmd;
-  // Remplace les outils absents sur Unraid par des equivalents natifs (grep, curl, nc)
-  // Extensible : ajouter ici tout nouvel outil a sanitiser
-
-  // jq : non disponible par defaut sur Unraid
-  // Pattern 1 : | jq -ne 'input.status == true'  ->  grep sans jq
-  cmd = cmd.replace(/\|\s*jq\s+-ne?\s+[\'"]input\.status\s*==\s*true[\'"]/g,
-    '| grep -q \'"status":true\'');
-  // Pattern 2 : | jq -r '.field'  -> supprime (curl seul suffit)
-  cmd = cmd.replace(/\|\s*jq\s+-r\s+[\'"]\.[\w.]+[\'"]/g, '');
-  // Pattern generique : tout jq restant -> curl -sf sur le port detecte
-  if (/\bjq\b/.test(cmd)) {
-    var _pm = cmd.match(/localhost:(\d{2,5})/);
-    var _ph = cmd.match(/localhost:\d+(\/[^\s'"]*)?/);
-    if (_pm) {
-      var _port = _pm[1];
-      var _path = (_ph && _ph[1]) ? _ph[1].replace(/[\s'"]+.*/, '') : '/';
-      cmd = 'curl -sf http://localhost:' + _port + _path + ' >/dev/null';
-    }
-    // Aucun port trouve -> laisser tel quel, wait_for gerera le fallback nc
-  }
-  return cmd;
-}
 
 function generateStartScript() {
   var L=[];
@@ -370,7 +346,7 @@ function generateStartScript() {
         }
         _startedContainers[_pname] = true;
         _launchedInGroup[_pname] = true; // marqué dans CE groupe
-        var cmdArg = (parallelTimeout > 0 && c.checkCmd) ? ' "'+c.checkCmd.replace(/"/g,'\\"')+'"' : ' ""';
+        var cmdArg = (parallelTimeout > 0 && c.checkCmd) ? ' "'+sanitizeCheckCmd(c.checkCmd).replace(/"/g,'\\"')+'"' : ' ""';
         var lvl = (parallelTimeout > 0 && c.checkLevel) ? c.checkLevel : 'none';
         var comment = lvl==='good' ? t('hc_comment_good') : lvl==='basic' ? t('hc_comment_basic') : t('hc_comment_none');
         L.push('# ' + comment + ' : ' + cname);
@@ -434,7 +410,7 @@ function generateStartScript() {
           if (c.checkCmd) {
             var lvlComment = c.checkLevel === 'good' ? t('hc_comment_good') : (c.checkLevel === 'basic' ? t('hc_comment_basic') : t('hc_comment_none'));
             L.push('# ' + lvlComment + ' : ' + cname);
-            L.push('wait_for "'+cname+'" '+getContainerTimeout(cname, c.timeout)+' "'+c.checkCmd.replace(/"/g,'\\"')+'"');
+            L.push('wait_for "'+cname+'" '+getContainerTimeout(cname, c.timeout)+' "'+sanitizeCheckCmd(c.checkCmd).replace(/"/g,'\\"')+'"');
           } else {
             L.push('# ' + t('hc_comment_none') + ' : ' + cname);
             L.push('wait_for "'+cname+'" '+getContainerTimeout(cname, c.timeout));
