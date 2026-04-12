@@ -102,7 +102,7 @@ jobs:
           cp "/tmp/${{ env.PKG_NAME }}.txz" "archive/${{ env.PKG_NAME }}.txz"
           V="${VERSION}" M="${MD5}"
           {
-            printf '%s\n' "<?xml version='1.0' standalone='yes'?>"
+            printf '%s\n' '<?xml version="1.0" standalone="yes"?>'
             printf '%s\n' '<!DOCTYPE PLUGIN ['
             printf '%s\n' '<!ENTITY name         "unraid-docker-orchestrator">'
             printf '%s\n' '<!ENTITY author       "Parralex-Labs">'
@@ -127,11 +127,6 @@ jobs:
             printf '%s\n' '- See https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/releases'
             printf '%s\n' '</CHANGES>'
             printf '%s\n' ''
-            printf '%s\n' '<FILE Run="/bin/bash">'
-            printf '%s\n' '<INLINE>'
-            printf '%s\n' 'rm -f $(ls /boot/config/plugins/&name;/&name;*.txz 2>/dev/null | grep -v '"'"'&version;'"'"')'
-            printf '%s\n' '</INLINE>'
-            printf '%s\n' '</FILE>'
             printf '%s\n' ''
             printf '%s\n' '<FILE Name="/boot/config/plugins/&name;/&name;-&version;-x86_64-1.txz" Run="upgradepkg --install-new">'
             printf '%s\n' '<URL>https://raw.githubusercontent.com/&github;/main/archive/&pluginpkg;</URL>'
