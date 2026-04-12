@@ -3,13 +3,13 @@
 <!DOCTYPE PLUGIN [
   <!ENTITY name         "unraid-docker-orchestrator">
   <!ENTITY author       "Parralex-Labs">
-  <!ENTITY version      "PLUGIN_VERSION">
-  <!ENTITY tag          "PLUGIN_TAG">
+  <!ENTITY version      "2026.04.12">
+  <!ENTITY tag          "v2026.04.12">
   <!ENTITY github       "Parralex-Labs/Unraid-Docker-Orchestrator">
   <!ENTITY pluginURL    "https://github.com/&github;/releases/download/&tag;/udo.plg">
   <!ENTITY pkgURL       "https://github.com/&github;/releases/download/&tag;">
   <!ENTITY pluginpkg    "unraid-docker-orchestrator-&version;-x86_64-1.txz">
-  <!ENTITY pluginpkgmd5 "PLUGIN_MD5">
+  <!ENTITY pluginpkgmd5 "1637ba5474596d5174a1f4a1484269ab">
   <!ENTITY supportURL   "https://github.com/&github;/issues">
 ]>
 
@@ -24,7 +24,7 @@
 <CHANGES>
 ## Unraid Docker Orchestrator
 
-### PLUGIN_VERSION
+### 2026.04.12
 - Initial release
 
 </CHANGES>
