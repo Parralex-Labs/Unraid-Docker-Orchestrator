@@ -46,29 +46,40 @@ mkdir -p "${CONFIG_DIR}"
 mkdir -p "${CONFIG_DIR}/scripts"
 mkdir -p "${CONFIG_DIR}/community-presets"
 
-echo "Copie des fichiers..."
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/UDO.page"               "${PLUGIN_DIR}/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/include/ajax.php"        "${PLUGIN_DIR}/include/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/css/udo.css"             "${PLUGIN_DIR}/css/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-translations.js"  "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-data.js"          "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-core.js"          "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-constants.js"     "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-render.js"        "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-healthchecks.js"  "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-classify.js"      "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-community.js"     "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-generate.js"      "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-simulate.js"      "${PLUGIN_DIR}/js/"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/udo-icon.png"            "${PLUGIN_DIR}/udo-icon.png"
-
-# Scripts PHP
-mkdir -p "${CONFIG_DIR}/scripts"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/scripts/udo_update_one.php" "${CONFIG_DIR}/scripts/udo_update_one.php"
-chmod 755 "${CONFIG_DIR}/scripts/udo_update_one.php"
-
-mkdir -p "${PLUGIN_DIR}/icons"
-cp "${SCRIPT_DIR}/unraid-docker-orchestrator/icons/"*.png "${PLUGIN_DIR}/icons/" 2>/dev/null || true
+# Détecter le contexte d'installation :
+# - Contexte ZIP  : SCRIPT_DIR contient unraid-docker-orchestrator/ → copier les fichiers
+# - Contexte TXZ  : les fichiers sont déjà dans PLUGIN_DIR par upgradepkg → juste config
+if [ -f "${SCRIPT_DIR}/unraid-docker-orchestrator/UDO.page" ]; then
+  echo "Copie des fichiers (contexte ZIP)..."
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/UDO.page"               "${PLUGIN_DIR}/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/include/ajax.php"        "${PLUGIN_DIR}/include/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/css/udo.css"             "${PLUGIN_DIR}/css/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-translations.js"  "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-data.js"          "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-core.js"          "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-constants.js"     "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-render.js"        "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-healthchecks.js"  "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-classify.js"      "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-community.js"     "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-generate.js"      "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/js/udo-simulate.js"      "${PLUGIN_DIR}/js/"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/udo-icon.png"            "${PLUGIN_DIR}/udo-icon.png"
+  mkdir -p "${PLUGIN_DIR}/icons"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/icons/"*.png "${PLUGIN_DIR}/icons/" 2>/dev/null || true
+  # Scripts PHP
+  mkdir -p "${CONFIG_DIR}/scripts"
+  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/scripts/udo_update_one.php" "${CONFIG_DIR}/scripts/udo_update_one.php"
+  chmod 755 "${CONFIG_DIR}/scripts/udo_update_one.php"
+else
+  echo "Fichiers déjà en place (contexte TXZ)..."
+  # Copier udo_update_one.php vers CONFIG_DIR (seul fichier hors PLUGIN_DIR)
+  mkdir -p "${CONFIG_DIR}/scripts"
+  if [ -f "${PLUGIN_DIR}/scripts/udo_update_one.php" ]; then
+    cp "${PLUGIN_DIR}/scripts/udo_update_one.php" "${CONFIG_DIR}/scripts/udo_update_one.php"
+    chmod 755 "${CONFIG_DIR}/scripts/udo_update_one.php"
+  fi
+fi
 
 if [ ! -f "${CONFIG_DIR}/config.json" ]; then
   echo '{"groups":[],"pool":[],"settings":{},"version":"1.0"}' > "${CONFIG_DIR}/config.json"
@@ -117,7 +128,12 @@ SCHEDULE_JSON="/boot/config/plugins/user.scripts/schedule.json"
 
 if [ -d "$US_DIR" ]; then
   mkdir -p "${CHECK_DIR}"
-  cp "${SCRIPT_DIR}/unraid-docker-orchestrator/scripts/udo-check.sh" "${CONFIG_DIR}/scripts/udo-check.sh"
+  # Source selon contexte ZIP ou TXZ
+  if [ -f "${SCRIPT_DIR}/unraid-docker-orchestrator/scripts/udo-check.sh" ]; then
+    cp "${SCRIPT_DIR}/unraid-docker-orchestrator/scripts/udo-check.sh" "${CONFIG_DIR}/scripts/udo-check.sh"
+  elif [ -f "${PLUGIN_DIR}/scripts/udo-check.sh" ]; then
+    cp "${PLUGIN_DIR}/scripts/udo-check.sh" "${CONFIG_DIR}/scripts/udo-check.sh"
+  fi
   cp "${CONFIG_DIR}/scripts/udo-check.sh" "${CHECK_DIR}/script"
   chmod 755 "${CHECK_DIR}/script"
   echo "${CHECK_NAME}" > "${CHECK_DIR}/name"
