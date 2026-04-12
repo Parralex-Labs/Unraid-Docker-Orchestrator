@@ -214,12 +214,26 @@ function restoreSession() {
 
     // Sanitisation générique des checkCmd persistés
     // Remplace les outils non disponibles sur Unraid (jq, etc.) par leurs équivalents
+    // Si des valeurs sont modifiées, on persiste immédiatement dans config.json
+    var _sanitizeChanged = false;
     if (typeof sanitizeCheckCmd === 'function') {
       groups.forEach(function(g) {
         g.containers.forEach(function(ct) {
-          if (ct.checkCmd) ct.checkCmd = sanitizeCheckCmd(ct.checkCmd);
+          if (ct.checkCmd) {
+            var _clean = sanitizeCheckCmd(ct.checkCmd);
+            if (_clean !== ct.checkCmd) {
+              ct.checkCmd = _clean;
+              _sanitizeChanged = true;
+            }
+          }
         });
       });
+    }
+    // Persister immédiatement si des checkCmd ont été corrigés
+    // (évite que config.json garde les valeurs invalides pour la prochaine session)
+    if (_sanitizeChanged) {
+      udoFetch('save_config', { method: 'POST', body: { groups: groups, userModified: false } })
+        .catch(function() {});
     }
 
     applySettingsToPauses();
