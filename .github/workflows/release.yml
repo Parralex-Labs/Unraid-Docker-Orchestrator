@@ -114,6 +114,7 @@ jobs:
 
           sed \
             -e "s/PLUGIN_VERSION/${VERSION}/g" \
+            -e "s/PLUGIN_TAG/${{ steps.version.outputs.TAG }}/g" \
             -e "s/PLUGIN_MD5/${MD5}/g" \
             plugin/udo.plg > /tmp/udo.plg
 
@@ -136,5 +137,5 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add plugin/udo.plg
-          git commit -m "chore: update udo.plg to ${{ steps.version.outputs.VERSION }}" || echo "Rien à committer"
+          git commit -m "chore: update udo.plg to ${{ steps.version.outputs.TAG }}" || echo "Rien à committer"
           git push origin HEAD:main

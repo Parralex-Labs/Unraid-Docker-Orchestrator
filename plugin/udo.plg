@@ -4,10 +4,11 @@
   <!ENTITY name        "unraid-docker-orchestrator">
   <!ENTITY author      "Parralex-Labs">
   <!ENTITY version     "PLUGIN_VERSION">
+  <!ENTITY tag         "PLUGIN_TAG">
   <!ENTITY github      "Parralex-Labs/Unraid-Docker-Orchestrator">
   <!ENTITY gitURL      "https://raw.githubusercontent.com/&github;/main">
   <!ENTITY pluginURL   "https://raw.githubusercontent.com/&github;/main/plugin/udo.plg">
-  <!ENTITY pkgURL      "https://github.com/&github;/releases/download/&version;">
+  <!ENTITY pkgURL      "https://github.com/&github;/releases/download/&tag;">
   <!ENTITY pluginpkg   "unraid-docker-orchestrator-&version;-x86_64-1.txz">
   <!ENTITY pluginpkgmd5 "PLUGIN_MD5">
   <!ENTITY supportURL  "https://github.com/&github;/issues">
