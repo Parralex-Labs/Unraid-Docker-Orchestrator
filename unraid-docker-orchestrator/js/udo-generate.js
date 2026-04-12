@@ -647,8 +647,10 @@ function generateStopScript() {
     var g = sortedGroups[gi];
     var isParallel = g.parallel || false;
 
+    // Containers actifs (enabled=true) : arrêt normal
+    // Containers désactivés (enabled=false) : arrêt conditionnel si running
     var activeContainers = g.containers.filter(function(c) {
-      return c.name.trim() && c.enabled !== false;
+      return c.name.trim();
     });
 
     if (activeContainers.length === 0) continue;
@@ -669,17 +671,25 @@ function generateStopScript() {
         var cname = c.name.trim().split(/\s+/)[0];
         if (_stoppedContainers[cname]) { return; }  // dédup
         _stoppedContainers[cname] = true;
-        _stoppedInGroup[cname] = true; // marqué dans CE groupe
+        _stoppedInGroup[cname] = true;
         var timeout = c.timeout || globalTimeout;
-        L.push('_udo_parallel_stop "' + cname + '" ' + timeout + ' &');
+        if (c.enabled === false) {
+          // Désactivé : arrêt conditionnel si le container tourne
+          L.push('if $DOCKER ps --format "{{.Names}}" | grep -qx "' + cname + '"; then');
+          L.push('  log "Arret (desactive mais running): ' + cname + '"');
+          L.push('  _udo_parallel_stop "' + cname + '" ' + timeout + ' &');
+          L.push('fi');
+        } else {
+          L.push('_udo_parallel_stop "' + cname + '" ' + timeout + ' &');
+        }
       });
       L.push('wait  # ' + t('js_script_parallel_wait'));
       L.push('');
-      // Consolidation des logs temporaires (uniquement les containers stoppés DANS CE GROUPE)
+      // Consolidation des logs temporaires
       L.push('# Consolidation logs');
       reversed.forEach(function(c) {
         var cname = c.name.trim().split(/\s+/)[0];
-        if (!_stoppedInGroup[cname]) { return; }  // skip non-lancés dans ce groupe
+        if (!_stoppedInGroup[cname]) { return; }
         L.push('[ -f "/tmp/udo_' + cname + '.log" ] && cat "/tmp/udo_' + cname + '.log" >> "$LOG" && echo "---" >> "$LOG" && rm -f "/tmp/udo_' + cname + '.log"');
       });
     } else {
@@ -692,7 +702,15 @@ function generateStopScript() {
         }
         _stoppedContainers[cname] = true;
         var timeout = c.timeout || globalTimeout;
-        L.push('stop_container "' + cname + '" ' + timeout);
+        if (c.enabled === false) {
+          // Désactivé : arrêt conditionnel si le container tourne
+          L.push('if $DOCKER ps --format "{{.Names}}" | grep -qx "' + cname + '"; then');
+          L.push('  log "Arret (desactive mais running): ' + cname + '"');
+          L.push('  stop_container "' + cname + '" ' + timeout);
+          L.push('fi');
+        } else {
+          L.push('stop_container "' + cname + '" ' + timeout);
+        }
       });
     }
 
