@@ -213,8 +213,9 @@ function restoreSession() {
     });
 
     // Sanitisation générique des checkCmd persistés
-    // Remplace les outils non disponibles sur Unraid (jq, etc.) par leurs équivalents
-    // Si des valeurs sont modifiées, on persiste immédiatement dans config.json
+    // Remplace uniquement les outils non disponibles sur Unraid (jq, etc.)
+    // Ne touche PAS aux ports — un checkCmd avec un port "incorrect" peut être
+    // un choix volontaire de l'utilisateur
     var _sanitizeChanged = false;
     if (typeof sanitizeCheckCmd === 'function') {
       groups.forEach(function(g) {

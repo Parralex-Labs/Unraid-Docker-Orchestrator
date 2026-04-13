@@ -2109,10 +2109,18 @@ function getPresetCmd(imageName, containerName) {
       }
     }
     // WebUI port depuis XML → curl healthcheck auto
+    // Mais seulement si on n'a PAS de preset connu pour ce container
+    // (le preset est plus fiable que le WebUI port XML qui peut être incorrect)
     var wuPort = importedImages[nativeName + '__webui_port'];
     var wuPath = importedImages[nativeName + '__webui_path'] || '/';
     if (wuPort) {
-      return 'curl -sf http://localhost:' + wuPort + wuPath + ' >/dev/null';
+      // Vérifier si un preset existe — si oui, le laisser prendre la priorité
+      var _presetCheck = getPresetCmd(img, containerName);
+      if (!_presetCheck || _presetCheck === '__NONE__') {
+        // Pas de preset → WebUI port XML est notre meilleure source
+        return 'curl -sf http://localhost:' + wuPort + wuPath + ' >/dev/null';
+      }
+      // Preset connu → ignorer le WebUI port XML, laisser tomber vers le preset
     }
   }
 
