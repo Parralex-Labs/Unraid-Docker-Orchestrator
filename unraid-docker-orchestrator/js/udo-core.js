@@ -193,22 +193,15 @@ function restoreSession() {
       if (typeof detectedDeps !== 'undefined') detectedDeps = c.detectedDeps;
     }
 
-    // Migration : appliquer les règles forcées
-    var FORCED = [
-      { name: /^NginxProxyManager$/i,  waitFor: true,  timeout: 60  },
-      { name: /^qbit[_-]manage$/i,     waitFor: false, timeout: 0,  checkCmd: '' },
-      { name: /^audiobookshelf$/i,     waitFor: true,  timeout: 45  },
-      { name: /^ollama$/i,             waitFor: true,  timeout: 60  },
-    ];
+    // Règle permanente : qbit_manage n'a pas de port HTTP ni de healthcheck
+    // checkCmd doit toujours être vide pour éviter une attente inutile
     groups.forEach(function(g) {
-      g.containers.forEach(function(c) {
-        FORCED.forEach(function(r) {
-          if (r.name.test(c.name)) {
-            c.waitFor = r.waitFor;
-            c.timeout = r.timeout;
-            if (r.checkCmd !== undefined) c.checkCmd = r.checkCmd;
-          }
-        });
+      g.containers.forEach(function(ct) {
+        if (/^qbit[_-]manage$/i.test(ct.name)) {
+          ct.waitFor  = false;
+          ct.timeout  = 0;
+          ct.checkCmd = '';
+        }
       });
     });
 

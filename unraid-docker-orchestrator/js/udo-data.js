@@ -293,13 +293,11 @@ var AF_GROUP_DEFAULTS = {
           };
 
 
-// ── Règles forcées (migration + cas spéciaux) ───────────────────────────────
+// ── Règles permanentes (cas spéciaux par nature du service) ───────────────
+// qbit_manage : script Python sans port HTTP, jamais de wait_for
+// Les autres règles (timeouts) sont gérées par AF_GROUP_DEFAULTS et les presets
 var FORCED_RULES = [
-      // Pas de checkCmd ici → detectCheckCmd adapte les vrais ports depuis HostConfig.PortBindings
-      { name: /^NginxProxyManager$/i,  waitFor: true,  timeout: 60  },
-      { name: /^qbit[_-]manage$/i,     waitFor: false, timeout: 0,  checkCmd: '' },  // jamais de wait_for
-      { name: /^audiobookshelf$/i,     waitFor: true,  timeout: 45  },
-      { name: /^ollama$/i,             waitFor: true,  timeout: 60  },
+      { name: /^qbit[_-]manage$/i, waitFor: false, timeout: 0, checkCmd: '' },
     ];
 
 
