@@ -1909,13 +1909,6 @@ function detectCheckCmd(c, imgName, containerName) {
     return result;
   }
 
-  // ── Priorité 0b: WebUI port depuis XML → curl healthcheck ────────────────
-  if (nativeWebUiPort) {
-    result.cmd   = 'curl -sf http://localhost:' + nativeWebUiPort + nativeWebUiPath + ' >/dev/null';
-    result.level = 'basic';
-    return result;
-  }
-
   // 0. Construire realPortMap : containerPort → hostPort
   //    Priorité : HostConfig.PortBindings (disponible même à l'arrêt)
   //    Fallback  : NetworkSettings.Ports (disponible uniquement à l'exécution)
@@ -2031,6 +2024,17 @@ function detectCheckCmd(c, imgName, containerName) {
     return result;
   }
 
+  // Priorité 0b (déplacée ici) : WebUI port depuis XML
+  // Placé APRÈS les presets car le preset est plus fiable que le WebUI port XML
+  // Placé APRÈS realPortMap pour adapter le port interne XML au port hôte réel
+  if (nativeWebUiPort) {
+    // Adapter le port XML (interne) vers le port hôte via realPortMap
+    var _wuHostPort = realPortMap[nativeWebUiPort] || nativeWebUiPort;
+    result.cmd   = 'curl -sf http://localhost:' + _wuHostPort + nativeWebUiPath + ' >/dev/null';
+    result.level = Object.keys(realPortMap).length ? 'good' : 'basic';
+    return result;
+  }
+
   // 3. Variables d'environnement BDD (commandes internes, pas de port hôte)
   var envs = (c.Config || {}).Env || [];
   for (var ei = 0; ei < envs.length; ei++) {
@@ -2108,20 +2112,10 @@ function getPresetCmd(imageName, containerName) {
         return nativeHc;
       }
     }
-    // WebUI port depuis XML → curl healthcheck auto
-    // Mais seulement si on n'a PAS de preset connu pour ce container
-    // (le preset est plus fiable que le WebUI port XML qui peut être incorrect)
+    // WebUI port depuis XML — géré dans detectCheckCmd après construction de realPortMap
     var wuPort = importedImages[nativeName + '__webui_port'];
     var wuPath = importedImages[nativeName + '__webui_path'] || '/';
-    if (wuPort) {
-      // Vérifier si un preset existe — si oui, le laisser prendre la priorité
-      var _presetCheck = getPresetCmd(img, containerName);
-      if (!_presetCheck || _presetCheck === '__NONE__') {
-        // Pas de preset → WebUI port XML est notre meilleure source
-        return 'curl -sf http://localhost:' + wuPort + wuPath + ' >/dev/null';
-      }
-      // Preset connu → ignorer le WebUI port XML, laisser tomber vers le preset
-    }
+    // Ne pas retourner ici — laisser detectCheckCmd gérer avec realPortMap
   }
 
   // 1. Règles custom localStorage — prioritaires
