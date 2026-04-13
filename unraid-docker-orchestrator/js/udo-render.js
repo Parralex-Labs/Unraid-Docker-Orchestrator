@@ -2173,10 +2173,7 @@ var SETTINGS_KEY = 'udo-settings-v1';
 var currentSettingsTab = 'services';
 
 // Valeurs par défaut des pauses et timings globaux
-var DEFAULT_TIMING = {
-  boot_delay:     60,
-  docker_timeout: 120,
-};
+// DEFAULT_TIMING défini dans udo-data.js (source unique)
 
 // Charger les settings depuis localStorage
 // loadSettings() et saveSettingsData() fournies par core.js (plugin)
@@ -2452,8 +2449,7 @@ function suggestParallelGroups() {
     // Vérifier qu'aucun conteneur du groupe n'a de waitFor interne
     // (waitFor d'un conteneur du même groupe)
     var groupNames = active.map(function(c) { return c.name.trim(); });
-    // Types qui constituent de vraies dépendances de démarrage (même liste que _depMap)
-    var ORDER_TYPES = { db: true, vpn: true, app: true, proxy: true, mqtt: true, auth: true, compose: true };
+  // ORDER_TYPES défini dans udo-constants.js
     var hasInternalDep = active.some(function(c) {
       if (!c.waitFor) return false;
       // Vérifier si une VRAIE dep de démarrage pointe vers un conteneur du même groupe

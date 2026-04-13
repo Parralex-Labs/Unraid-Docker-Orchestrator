@@ -301,17 +301,17 @@ var CLASSIFY_RULES = [
   // ── Applications web ──────────────────────────────────────────
   // Applications web — waitFor:true = attendre qu'elles soient prêtes (preset disponible)
   // waitFor:false = démarrage sans attente (apps frontend sans dépendants)
-  { pattern: /phpmyadmin/i,                              group: 'Applications web',    waitFor: true,  timeout: 30  },
-  { pattern: /onlyoffice|documentserver/i,               group: 'Applications web',    waitFor: true,  timeout: 60  },
-  { pattern: /nextcloud/i,                               group: 'Applications web',    waitFor: true,  timeout: 60  },
-  { pattern: /vaultwarden|bitwarden/i,                   group: 'Applications web',    waitFor: true,  timeout: 30  },
-  { pattern: /gitea|forgejo/i,                           group: 'Applications web',    waitFor: true,  timeout: 30  },
-  { pattern: /paperless/i,                               group: 'Applications web',    waitFor: true,  timeout: 60  },
+  { pattern: /phpmyadmin/i,                              group: 'Applications web',    waitFor: false,  timeout: 30  },
+  { pattern: /onlyoffice|documentserver/i,               group: 'Applications web',    waitFor: false,  timeout: 60  },
+  { pattern: /nextcloud/i,                               group: 'Applications web',    waitFor: false,  timeout: 60  },
+  { pattern: /vaultwarden|bitwarden/i,                   group: 'Applications web',    waitFor: false,  timeout: 30  },
+  { pattern: /gitea|forgejo/i,                           group: 'Applications web',    waitFor: false,  timeout: 30  },
+  { pattern: /paperless/i,                               group: 'Applications web',    waitFor: false,  timeout: 60  },
   { pattern: /homarr|heimdall|organizr|homepage|dasherr/i, group: 'Applications web', waitFor: false, timeout: 30  },
   { pattern: /activepieces/i,                            group: 'Applications web',    waitFor: false, timeout: 30  },
   { pattern: /firefly/i,                                 group: 'Applications web',    waitFor: false, timeout: 30  },
   { pattern: /actual/i,                                  group: 'Applications web',    waitFor: false, timeout: 30  },
-  { pattern: /wikijs|wiki\.js/i,                        group: 'Applications web',    waitFor: true,  timeout: 30  },
+  { pattern: /wikijs|wiki\.js/i,                        group: 'Applications web',    waitFor: false,  timeout: 30  },
   { pattern: /freshrss|miniflux/i,                       group: 'Applications web',    waitFor: false, timeout: 30  },
   { pattern: /mealie|grocy/i,                            group: 'Applications web',    waitFor: false, timeout: 30  },
 
@@ -353,12 +353,12 @@ var CLASSIFY_RULES = [
   { pattern: /komf/i,                                    group: 'Gestion médias',      waitFor: false, timeout: 30  },
 
   // ── Téléchargement ────────────────────────────────────────────
-  { pattern: /flaresolverr/i,                            group: 'Téléchargement',      waitFor: true,  timeout: 30  },
-  { pattern: /jackett|prowlarr|nzbhydra/i,               group: 'Téléchargement',      waitFor: true,  timeout: 20  },
-  { pattern: /qbittorrent/i,                             group: 'Téléchargement',      waitFor: true,  timeout: 45  },
-  { pattern: /deluge/i,                                  group: 'Téléchargement',      waitFor: true,  timeout: 30  },
-  { pattern: /transmission/i,                            group: 'Téléchargement',      waitFor: true,  timeout: 30  },
-  { pattern: /rtorrent|rutorrent/i,                      group: 'Téléchargement',      waitFor: true,  timeout: 30  },
+  { pattern: /flaresolverr/i,                            group: 'Téléchargement',      waitFor: false,  timeout: 30  },
+  { pattern: /jackett|prowlarr|nzbhydra/i,               group: 'Téléchargement',      waitFor: false,  timeout: 20  },
+  { pattern: /qbittorrent/i,                             group: 'Téléchargement',      waitFor: false,  timeout: 45  },
+  { pattern: /deluge/i,                                  group: 'Téléchargement',      waitFor: false,  timeout: 30  },
+  { pattern: /transmission/i,                            group: 'Téléchargement',      waitFor: false,  timeout: 30  },
+  { pattern: /rtorrent|rutorrent/i,                      group: 'Téléchargement',      waitFor: false,  timeout: 30  },
   { pattern: /sabnzbd|nzbget/i,                          group: 'Téléchargement',      waitFor: false, timeout: 30  },
   { pattern: /sonarr/i,                                  group: 'Téléchargement',      waitFor: false, timeout: 30  },
   { pattern: /radarr/i,                                  group: 'Téléchargement',      waitFor: false, timeout: 30  },
@@ -377,24 +377,24 @@ var CLASSIFY_RULES = [
   { pattern: /owncloud/i,                                group: 'Fichiers & Sync',     waitFor: false, timeout: 30  },
 
   // ── Domotique ─────────────────────────────────────────────────
-  { pattern: /homeassistant|home-assistant/i,            group: 'Domotique',           waitFor: true,  timeout: 60  },
+  { pattern: /homeassistant|home-assistant/i,            group: 'Domotique',           waitFor: false,  timeout: 60  },
   { pattern: /node.red/i,                                group: 'Domotique',           waitFor: false, timeout: 30  },
-  { pattern: /zigbee2mqtt|mosquitto|emqx/i,              group: 'Domotique',           waitFor: true,  timeout: 15  },
+  { pattern: /zigbee2mqtt|mosquitto|emqx/i,              group: 'Domotique',           waitFor: false,  timeout: 15  },
   { pattern: /zwavejs|zwave/i,                           group: 'Domotique',           waitFor: false, timeout: 30  },
   { pattern: /esphome/i,                                 group: 'Domotique',           waitFor: false, timeout: 30  },
 
   // ── IA & LLM ──────────────────────────────────────────────────
-  { pattern: /ollama/i,                                   group: 'IA & LLM',            waitFor: true,  timeout: 60  },
+  { pattern: /ollama/i,                                   group: 'IA & LLM',            waitFor: false,  timeout: 60  },
   { pattern: /anythingllm|anything-llm/i,                 group: 'IA & LLM',            waitFor: false, timeout: 30  },
   { pattern: /open-webui|openwebui/i,                     group: 'IA & LLM',            waitFor: false, timeout: 30  },
   { pattern: /lmstudio|lm-studio/i,                       group: 'IA & LLM',            waitFor: false, timeout: 30  },
-  { pattern: /localai|local-ai/i,                         group: 'IA & LLM',            waitFor: true,  timeout: 60  },
+  { pattern: /localai|local-ai/i,                         group: 'IA & LLM',            waitFor: false,  timeout: 60  },
   { pattern: /text-generation-webui|oobabooga/i,          group: 'IA & LLM',            waitFor: false, timeout: 30  },
   { pattern: /comfyui|stable-diffusion|stablediffusion/i, group: 'IA & LLM',            waitFor: false, timeout: 30  },
   { pattern: /automatic1111|a1111/i,                      group: 'IA & LLM',            waitFor: false, timeout: 30  },
   { pattern: /koboldai|kobold/i,                          group: 'IA & LLM',            waitFor: false, timeout: 30  },
   { pattern: /tabbyapi|tabby/i,                           group: 'IA & LLM',            waitFor: false, timeout: 30  },
-  { pattern: /vllm/i,                                     group: 'IA & LLM',            waitFor: true,  timeout: 60  },
+  { pattern: /vllm/i,                                     group: 'IA & LLM',            waitFor: false,  timeout: 60  },
   { pattern: /flowise/i,                                   group: 'IA & LLM',            waitFor: false, timeout: 30  },
   { pattern: /langchain|langflow/i,                       group: 'IA & LLM',            waitFor: false, timeout: 30  },
   { pattern: /whisper(?!arr)/i,                           group: 'IA & LLM',            waitFor: false, timeout: 30  },
@@ -413,6 +413,10 @@ var CLASSIFY_RULES = [
   { pattern: /linuxserver\/firefox|^firefox$/i,          group: 'Outils',              waitFor: false, timeout: 30  },
   { pattern: /linuxserver\/orcaslicer|orcaslicer/i,      group: 'Outils',              waitFor: false, timeout: 30  },
   { pattern: /code-server|vscode/i,                      group: 'Outils',              waitFor: false, timeout: 30  },
+  // ── Outils Docker supplémentaires ────────────────────────────────
+  { pattern: /dozzle/i,                                   group: 'Outils',         waitFor: false, timeout: 30 },
+  { pattern: /yacht/i,                                    group: 'Outils',         waitFor: false, timeout: 30 },
+  { pattern: /lazydocker/i,                               group: 'Outils',         waitFor: false, timeout: 30 },
 ];
 
 // Group priority order (determines script execution order)
@@ -466,23 +470,7 @@ function getGroupPriority(groupName) {
 // ALWAYS_WAIT_FOR supprimé — timeouts consolidés dans CLASSIFY_RULES
 
 // Pauses intelligentes par type de groupe
-var GROUP_PAUSES = {
-  'VPN / Réseau':      10,
-  'DNS & AdBlock':      0,
-  'Bases de données':  10,
-  'Proxy & SSL':        5,
-  'Auth':               5,
-  'Applications web':   5,
-  'Monitoring':         5,
-  'Serveurs média':     5,
-  'Gestion médias':     5,
-  'Téléchargement':     5,
-  'Fichiers & Sync':    5,
-  'Domotique':          5,
-  'IA & LLM':           5,
-  'Outils':             0,
-  'Non classes':        5,
-};
+// GROUP_PAUSES défini dans udo-data.js (source unique)
 
 // Regles d'ordre intra-groupe : {name} doit venir apres {after}
 var ORDER_RULES = [
@@ -1806,7 +1794,7 @@ function suggestParallelGroups() {
     // Vérifier qu'aucun conteneur du groupe n'a de waitFor interne
     // (waitFor d'un conteneur du même groupe)
     var groupNames = active.map(function(c) { return c.name.trim(); });
-    var ORDER_TYPES = { db: true, vpn: true, app: true, proxy: true, mqtt: true, auth: true, compose: true };
+  // ORDER_TYPES défini dans udo-constants.js
     var hasInternalDep = active.some(function(c) {
       if (!c.waitFor) return false;
       return detectedDeps.some(function(d) {

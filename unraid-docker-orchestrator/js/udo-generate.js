@@ -390,7 +390,7 @@ function generateStartScript() {
         // prevWait = dépendance réelle ET déjà démarrée avant ce container
         // Garantit: pas de deadlock, pas de "retour vers le futur"
         var _deps = window.detectedDeps || detectedDeps || [];
-        var _ORDER_TYPES = { db: 1, vpn: 1, app: 1, proxy: 1, mqtt: 1, auth: 1, compose: 1 };
+    var _ORDER_TYPES = ORDER_TYPES;  // défini dans udo-constants.js
         var _myDep = _deps.filter(function(d) {
           return d.from === cname &&
                  d.accepted !== false &&
@@ -405,7 +405,7 @@ function generateStartScript() {
         }
         L.push('start_container "'+cname+'"' + (prevWait ? ' "'+prevWait+'"' : ''));
         // Certains conteneurs ne doivent jamais avoir de wait_for (scripts, outils sans service)
-        var NEVER_WAIT = /^qbit[_-]manage$|^watchtower$|^diun$|^borgmatic$/i;
+// NEVER_WAIT défini dans udo-data.js (source unique)
         if (c.waitFor && !NEVER_WAIT.test(cname)) {
           if (c.checkCmd) {
             var lvlComment = c.checkLevel === 'good' ? t('hc_comment_good') : (c.checkLevel === 'basic' ? t('hc_comment_basic') : t('hc_comment_none'));
@@ -848,7 +848,7 @@ function generateUpdateScript() {
   allContainers.forEach(function(c) {
     var myDeps = _allDeps.filter(function(d) {
       // Seuls les types qui constituent une vraie dépendance de démarrage
-      var ORDER_TYPES = { db: 1, vpn: 1, app: 1, proxy: 1, mqtt: 1, auth: 1, compose: 1 };
+      // ORDER_TYPES défini dans udo-constants.js
       return d.from === c.name && d.accepted !== false && !d.ignored && ORDER_TYPES[d.type];
     });
     if (myDeps.length > 0) {
