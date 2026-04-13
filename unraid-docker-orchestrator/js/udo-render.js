@@ -2644,86 +2644,7 @@ function detectCheckCmd(c, imgName, containerName) {
 }
 
 // ── Commandes de test prédéfinies par type de service ─────────────────────
-var HEALTHCHECK_PRESETS = {
-  // Bases de données
-  'mariadb':              'mariadb-admin ping --silent 2>/dev/null || mysqladmin ping --silent 2>/dev/null',
-  'mariadb-official':     'mariadb-admin ping --silent 2>/dev/null || mysqladmin ping --silent 2>/dev/null',
-  'mariadbofficial':      'mariadb-admin ping --silent 2>/dev/null || mysqladmin ping --silent 2>/dev/null',
-  'mysql':                'mysqladmin ping --silent 2>/dev/null',
-  'postgres':             'pg_isready -U postgres',
-  'postgresql':           'pg_isready -U postgres',
-  'postgresql17':         'pg_isready -U postgres',
-  'redis':                'redis-cli ping | grep -q PONG',
-  'mongo':                'mongosh --eval "db.adminCommand({ping:1})" --quiet',
-  'influxdb':             'curl -sf http://localhost:8086/health | grep -q pass',
-  // DNS
-  'adguard':              'nc -z localhost 53',
-  'pihole':               'nc -z localhost 53',
-  // Proxy
-  'traefik':              'wget -qO- http://localhost:8080/ping | grep -q OK',
-  'nginx':                'nc -z localhost 80',
-  'nginxproxymanager':    'nc -z localhost 8181 || nc -z localhost 8080 || nc -z localhost 81',
-  'nginx-proxy-manager':  'nc -z localhost 8181 || nc -z localhost 8080 || nc -z localhost 81',
-  'proxy-manager':        'nc -z localhost 8181 || nc -z localhost 8080 || nc -z localhost 81',
-  'jlesage':              'nc -z localhost 8181 || nc -z localhost 8080 || nc -z localhost 81',
-  'npm':                  'nc -z localhost 8181 || nc -z localhost 8080 || nc -z localhost 81',
-  'caddy':                'nc -z localhost 80',
-  // VPN
-  'gluetun':              '/gluetun-entrypoint healthcheck',
-  'wireguard':            'wg show | grep -q interface',
-  // Media
-  'jellyfin':             'curl -sf http://localhost:8096/health | grep -q Healthy',
-  'plex':                 'curl -sf http://localhost:32400/identity',
-  'emby':                 'curl -sf http://localhost:8096/health',
-  'audiobookshelf':       'nc -z localhost 80',
-  'navidrome':            'curl -sf http://localhost:4533/ping',
-  // Téléchargement
-  'qbittorrent':          'nc -z localhost 8080',
-  'flaresolverr':         'curl -sf http://localhost:8191/ 2>/dev/null | grep -q FlareSolverr || nc -z localhost 8191',
-  'jackett':              'nc -z localhost 9117',
-  'prowlarr':             'nc -z localhost 9696',
-  'sonarr':               'nc -z localhost 8989',
-  'radarr':               'nc -z localhost 7878',
-  'lidarr':               'nc -z localhost 8686',
-  'readarr':              'nc -z localhost 8787',
-  'bazarr':               'nc -z localhost 6767',
-  'cross-seed':           'nc -z localhost 2468',
-  'qbit_manage':          '',  // script Python — pas de port ni service HTTP, pas de wait_for
-  'qbit-manage':          '',  // idem
-  // MQTT
-  'mosquitto':            'nc -z localhost 1883',
-  'emqx':                 'nc -z localhost 1883',
-  // Cache
-  'memcached':            'nc -z localhost 11211',
-  // Auth
-  'authelia':             'curl -sf http://localhost:9091/api/health | grep -q status',
-  'authentik':            'curl -sf http://localhost:9000/-/health/ready/',
-  'keycloak':             'curl -sf http://localhost:8080/health | grep -q UP',
-  // Apps
-  'nextcloud':            'curl -sf http://localhost/status.php | grep -q installed',
-  'gitea':                'curl -sf http://localhost:3000/api/healthz',
-  'forgejo':              'curl -sf http://localhost:3000/api/healthz',
-  'vaultwarden':          'curl -sf http://localhost:80/alive',
-  'paperless':            'curl -sf http://localhost:8000/api/remote_version/',
-  'homarr':               'nc -z localhost 7575',
-  'heimdall':             'nc -z localhost 80',
-  // IA & LLM
-  'ollama':                    'nc -z localhost 11434',
-  'open-webui':                'curl -sf http://localhost:8080/health 2>/dev/null | grep -qi ok || nc -z localhost 8080',
-  'openwebui':                 'curl -sf http://localhost:8080/health 2>/dev/null | grep -qi ok || nc -z localhost 8080',
-  'anythingllm':               'nc -z localhost 3001',
-  'anything-llm':              'nc -z localhost 3001',
-  'anythingllmofficial':       'nc -z localhost 3001',
-  'localai':                   'curl -sf http://localhost:8080/readyz',
-  'local-ai':                  'curl -sf http://localhost:8080/readyz',
-  'comfyui':                   'nc -z localhost 8188',
-  'text-generation-webui':     'nc -z localhost 7860',
-  'flowise':                   'curl -sf http://localhost:3000/api/v1/chatflows >/dev/null',
-  'vllm':                      'curl -sf http://localhost:8000/health',
-  'tabbyapi':                  'nc -z localhost 5000',
-  'prometheus':           'curl -sf http://localhost:9090/-/healthy',
-  'uptime-kuma':          'curl -sf http://localhost:3001/api/entry-page',
-};
+// HEALTHCHECK_PRESETS est défini dans udo-healthchecks.js (source unique)
 
 
 function setCheckCmd(i, val) {
@@ -2743,40 +2664,7 @@ function applyPreset(i) {
     renderDepSuggestions();
   }
 }
-function getPresetCmd(imageName, containerName) {
-  var img   = (imageName    || '').toLowerCase().replace(/:.*/,'').replace(/.*\//,'');
-  var cname = (containerName|| '').toLowerCase().replace(/[^a-z0-9]/g,'');
-  var craw  = (containerName|| '').toLowerCase(); // version avec tirets pour matching direct
-
-  // 1. Règles custom localStorage — prioritaires
-  try {
-    var s = loadSettings();
-    for (var key in (s.services || {})) {
-      var k = key.toLowerCase().replace(/[^a-z0-9]/g,'');
-      if (k && ((img && img.indexOf(k) >= 0) || (cname && cname.indexOf(k) >= 0))) {
-        if (s.services[key].check) return s.services[key].check;
-      }
-    }
-  } catch(e) {}
-
-  // 2. Correspondance exacte dans HEALTHCHECK_PRESETS (image normalisée)
-  if (HEALTHCHECK_PRESETS[img])   return HEALTHCHECK_PRESETS[img];
-  // 2b. Correspondance exacte sur le nom de conteneur normalisé (sans tirets/majuscules)
-  if (HEALTHCHECK_PRESETS[cname]) return HEALTHCHECK_PRESETS[cname];
-  // 2c. Correspondance directe sur le nom brut (avec tirets, ex: mariadb-official)
-  var crawKey = craw.replace(/[^a-z0-9-]/g,'');
-  if (HEALTHCHECK_PRESETS[crawKey]) return HEALTHCHECK_PRESETS[crawKey];
-
-  // 3. Correspondance partielle — clés les plus longues en premier
-  var keys = Object.keys(HEALTHCHECK_PRESETS).sort(function(a,b){ return b.length - a.length; });
-  for (var i = 0; i < keys.length; i++) {
-    var ki = keys[i].replace(/[^a-z0-9]/g,'');
-    if (!ki) continue;
-    if (img.indexOf(ki) >= 0 || cname.indexOf(ki) >= 0) return HEALTHCHECK_PRESETS[keys[i]];
-  }
-  return '';
-}
-
+// getPresetCmd() est définie dans udo-classify.js (source unique, chargé après)
 
 function toggleHcEdit(i) {
   var panel = document.getElementById('hc-edit-' + i);
