@@ -74,7 +74,6 @@ UDO résout ces trois problèmes en générant des scripts Bash **autonomes** qu
 - **Protection des bases de données** — MariaDB, PostgreSQL, Redis, InfluxDB exclus des mises à jour automatiques
 
 ### 🛡️ Sécurité & fiabilité
-- **Mode Dry-Run** — simule le script sans aucune modification
 - **Export/Import** de configuration JSON — sauvegardez et restaurez votre orchestration
 - **Script de vérification** — tourne toutes les 5 minutes, notifie si la configuration dérive
 - **Scripts autonomes** — fonctionnent sans le plugin (survie à la désinstallation)
