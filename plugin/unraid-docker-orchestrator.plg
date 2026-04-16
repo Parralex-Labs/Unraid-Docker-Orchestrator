@@ -2,8 +2,8 @@
 <!DOCTYPE PLUGIN [
 <!ENTITY name         "unraid-docker-orchestrator">
 <!ENTITY author       "Parralex-Labs">
-<!ENTITY version      "2026.04.13.c">
-<!ENTITY md5          "be8a8fe31162d3a39a1d8658c95d2a26">
+<!ENTITY version      "2026.04.16">
+<!ENTITY md5          "ebc49d08be43a61b82d3111d04a9e058">
 <!ENTITY github       "Parralex-Labs/Unraid-Docker-Orchestrator">
 <!ENTITY pluginURL    "https://raw.githubusercontent.com/&github;/main/plugin/unraid-docker-orchestrator.plg">
 <!ENTITY pluginpkg    "&name;-&version;-x86_64-1.txz">
@@ -19,7 +19,7 @@
 
 <CHANGES>
 ## Unraid Docker Orchestrator
-### 2026.04.13.c
+### 2026.04.16
 - See https://github.com/Parralex-Labs/Unraid-Docker-Orchestrator/releases
 </CHANGES>
 
