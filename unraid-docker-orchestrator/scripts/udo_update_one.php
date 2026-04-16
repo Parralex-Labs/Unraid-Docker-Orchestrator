@@ -16,6 +16,60 @@ $DockerClient    = new DockerClient();
 $DockerTemplates = new DockerTemplates();
 $DockerUpdate    = new DockerUpdate();
 
+// Lire les labels Unraid du container AVANT toute modification
+// Ils seront réinjectés dans la commande docker run si xmlToCommand() ne les pose pas
+// Source de vérité : docker inspect (reflète ce qu'Unraid a posé à la création)
+function readUnraidLabels(string $containerName): array {
+    $fmt  = '{{json .Config.Labels}}';
+    $json = shell_exec("docker inspect --format=" . escapeshellarg($fmt) . " " . escapeshellarg($containerName) . " 2>/dev/null") ?? '{}';
+    $all  = json_decode(trim($json), true) ?: [];
+    $keep = [];
+    // Labels critiques pour que le panneau Docker Unraid reconnaisse le container
+    $unraidKeys = [
+        'net.unraid.docker.managed',
+        'net.unraid.docker.webui',
+        'net.unraid.docker.icon',
+        'net.unraid.docker.shell',
+        'net.unraid.docker.overview',
+    ];
+    foreach ($unraidKeys as $k) {
+        if (isset($all[$k]) && $all[$k] !== '') {
+            $keep[$k] = $all[$k];
+        }
+    }
+    return $keep;
+}
+
+// Injecter les labels Unraid dans une commande docker run si absents
+function injectUnraidLabels(string $cmd, array $labels): string {
+    if (empty($labels)) return $cmd;
+    $parts = [];
+    foreach ($labels as $k => $v) {
+        // Vérifier si le label est déjà présent dans la commande
+        if (strpos($cmd, $k) === false) {
+            $parts[] = '-l ' . escapeshellarg("$k=$v");
+        }
+    }
+    if (empty($parts)) return $cmd;
+    // Insérer les labels juste avant le nom de l'image (dernier argument)
+    // Format : ... [options] image [command]
+    // On insère avant le dernier token non-option
+    $labelsStr = implode(' ', $parts);
+    // Stratégie : insérer avant le dernier argument (l'image)
+    $lastSpace = strrpos(rtrim($cmd), ' ');
+    if ($lastSpace !== false) {
+        $cmd = substr($cmd, 0, $lastSpace) . ' ' . $labelsStr . substr($cmd, $lastSpace);
+    }
+    return $cmd;
+}
+
+$unraidLabels = readUnraidLabels($name);
+if (!empty($unraidLabels)) {
+    echo "Labels Unraid lus: " . implode(', ', array_keys($unraidLabels)) . "\n";
+} else {
+    echo "WARN: aucun label Unraid trouvé sur $name — le container pourrait apparaître en 3rd party\n";
+}
+
 // 1. Trouver le template XML
 $tmpl = $DockerTemplates->getUserTemplate($name);
 if (!$tmpl) {
@@ -27,7 +81,8 @@ if (!$tmpl) {
         exit(1);
     }
     echo "WARN: template XML absent pour $name — recréation depuis docker inspect\n";
-    // Sans template XML, on ne peut pas recréer proprement avec tous les paramètres
+    // Sans template XML : docker start conserve les labels existants
+    // Les labels Unraid sont préservés car le container n'est pas recréé
     // On se limite à pull + restart pour ne pas perdre la configuration
     $wasRunning = !empty(($DockerClient->getContainerDetails($name))['State']['Running']);
     if ($wasRunning) {
@@ -61,6 +116,10 @@ try {
     // Fallback : récupérer Repository depuis le XML directement
     $Repository = (string)($xml->Repository ?? '');
     echo "WARN: xmlToCommand exception (" . $e->getMessage() . ") — fallback docker inspect\n";
+}
+// Injecter les labels Unraid si xmlToCommand() ne les a pas posés
+if ($cmd) {
+    $cmd = injectUnraidLabels($cmd, $unraidLabels);
 }
 
 // Si xmlToCommand a échoué ou retourné une commande vide, reconstruire depuis docker inspect
@@ -168,6 +227,8 @@ if (!$cmd && $Repository) {
         // Image
         $cmd_parts[] = escapeshellarg($img);
         $cmd = implode(" ", $cmd_parts);
+        // Réinjecter les labels Unraid (absents du fallback reconstruit)
+        $cmd = injectUnraidLabels($cmd, $unraidLabels);
         echo "Commande reconstruite depuis docker inspect (fallback xmlToCommand)\n";
     }
 }
