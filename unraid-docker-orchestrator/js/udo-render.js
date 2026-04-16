@@ -79,13 +79,21 @@ function makeChip(name) {
   chip.addEventListener('dragstart', function(e) {
     chipDragName = name;
     rowDragSrc   = null;
-    groupDragSrc = null;  // évite interférence avec drag groupe
-    setTimeout(function(){ chip.classList.add('dragging'); }, 0);
+    groupDragSrc = null;
+    setTimeout(function(){
+      chip.classList.add('dragging');
+      // Indiquer visuellement toutes les drop zones des groupes
+      document.querySelectorAll('.group-drop-zone').forEach(function(dz) {
+        dz.classList.add('chip-drag-active');
+      });
+    }, 0);
   });
   chip.addEventListener('dragend', function() {
     chip.classList.remove('dragging');
-    chipDragName = null;  // nettoyage explicite
     chipDragName = null;
+    document.querySelectorAll('.group-drop-zone').forEach(function(dz) {
+      dz.classList.remove('chip-drag-active');
+    });
   });
   return chip;
 }
@@ -966,6 +974,103 @@ function addGroup() {
 
 // ── Actions sur conteneurs ─────────────────────────────────────────────────
 function addContainer(gi) {
+  // Si le pool contient des containers, afficher un picker plutôt qu'un input libre
+  if (pool.length > 0) {
+    showPoolPicker(gi);
+  } else {
+    // Pool vide : fallback input libre
+    addContainerManual(gi);
+  }
+}
+
+// Picker : liste les containers du pool dans un dropdown + option saisie libre
+function showPoolPicker(gi) {
+  // Supprimer tout picker existant
+  var existing = document.getElementById('pool-picker-overlay');
+  if (existing) existing.parentNode.removeChild(existing);
+
+  var overlay = document.createElement('div');
+  overlay.id = 'pool-picker-overlay';
+  overlay.className = 'pool-picker-overlay';
+
+  var picker = document.createElement('div');
+  picker.className = 'pool-picker';
+
+  var title = document.createElement('div');
+  title.className = 'pool-picker-title';
+  title.textContent = t('btn_add_manual') || '+ Ajouter un container';
+
+  var list = document.createElement('div');
+  list.className = 'pool-picker-list';
+
+  // Lister les containers du pool avec icône
+  pool.forEach(function(name) {
+    var item = document.createElement('div');
+    item.className = 'pool-picker-item';
+
+    var iconUrl = importedImages[name + '__icon'] || getAppfeedIcon(name) || DOCKER_FALLBACK_ICON;
+    var img = document.createElement('img');
+    img.src = iconUrl;
+    img.className = 'pool-picker-icon';
+    img.referrerPolicy = 'no-referrer';
+    img.onerror = function() { this.src = DOCKER_FALLBACK_ICON; this.onerror = null; };
+
+    var lbl = document.createElement('span');
+    lbl.textContent = name;
+
+    item.appendChild(img);
+    item.appendChild(lbl);
+    item.addEventListener('click', function() {
+      // Retirer du pool et ajouter au groupe
+      var poolIdx = pool.indexOf(name);
+      if (poolIdx !== -1) pool.splice(poolIdx, 1);
+      groups[gi].containers.push({ name: name, waitFor: false, timeout: 30, enabled: true });
+      closePoolPicker();
+      render(); renderPool();
+      setTimeout(renderDepWarnings, 50);
+    });
+    list.appendChild(item);
+  });
+
+  // Séparateur + option saisie libre
+  if (pool.length > 0) {
+    var sep = document.createElement('div');
+    sep.className = 'pool-picker-sep';
+    list.appendChild(sep);
+  }
+
+  var manualItem = document.createElement('div');
+  manualItem.className = 'pool-picker-item pool-picker-manual';
+  manualItem.textContent = '✏️  ' + (t('pool_picker_manual') || 'Saisir un nom manuellement…');
+  manualItem.addEventListener('click', function() {
+    closePoolPicker();
+    addContainerManual(gi);
+  });
+  list.appendChild(manualItem);
+
+  picker.appendChild(title);
+  picker.appendChild(list);
+  overlay.appendChild(picker);
+  document.body.appendChild(overlay);
+
+  // Fermer en cliquant en dehors
+  overlay.addEventListener('click', function(e) {
+    if (e.target === overlay) closePoolPicker();
+  });
+  // Fermer avec Echap
+  var escHandler = function(e) {
+    if (e.key === 'Escape') { closePoolPicker(); document.removeEventListener('keydown', escHandler); }
+  };
+  document.addEventListener('keydown', escHandler);
+}
+
+function closePoolPicker() {
+  var el = document.getElementById('pool-picker-overlay');
+  if (el) el.parentNode.removeChild(el);
+}
+
+// Ajout manuel via input libre (ancien comportement, accessible depuis le picker)
+function addContainerManual(gi) {
   groups[gi].containers.push({ name:'', waitFor:false, timeout:30, enabled:true });
   render();
   setTimeout(function(){
@@ -975,7 +1080,6 @@ function addContainer(gi) {
     var inp = row.querySelector('input');
     if (inp) {
       inp.focus();
-      // Check doublon quand l'utilisateur quitte le champ
       inp.addEventListener('blur', function() {
         var name = this.value.trim();
         if (!name) return;
