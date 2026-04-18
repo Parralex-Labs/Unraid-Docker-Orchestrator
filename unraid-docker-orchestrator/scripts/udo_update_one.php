@@ -372,17 +372,23 @@ foreach (array_filter(explode("\n", trim($dangling))) as $line) {
 }
 
 // 11. Mettre à jour unraid-update-status.json via docker inspect
+// Unraid indexe les images avec le tag complet (ex: "repo/image:latest")
+// Si $Repository n'a pas de tag, ajouter :latest pour correspondre aux clés Unraid
 $statusFile = '/var/lib/docker/unraid-update-status.json';
 if (file_exists($statusFile)) {
+    // Normaliser la clé : ajouter :latest si pas de tag
+    $repoKey = (strpos($Repository, ':') === false) ? $Repository . ':latest' : $Repository;
     $inspect = shell_exec("docker inspect --format='{{index .RepoDigests 0}}' " . escapeshellarg($Repository) . " 2>/dev/null");
     $digest = trim($inspect ?? '');
     // Extraire sha256:... depuis image@sha256:...
     if (preg_match('/(sha256:[a-f0-9]+)/', $digest, $m)) {
         $digest = $m[1];
         $status = json_decode(file_get_contents($statusFile), true) ?: [];
+        // Écrire avec la clé normalisée ET sans tag (les deux pour compatibilité)
+        $status[$repoKey]    = ['local' => $digest, 'remote' => $digest, 'status' => 'true'];
         $status[$Repository] = ['local' => $digest, 'remote' => $digest, 'status' => 'true'];
         file_put_contents($statusFile, json_encode($status, JSON_PRETTY_PRINT|JSON_UNESCAPED_SLASHES));
-        echo "Status updated: $Repository\n";
+        echo "Status updated: $repoKey\n";
     }
 }
 
