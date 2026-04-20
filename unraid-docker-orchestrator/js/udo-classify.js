@@ -1335,7 +1335,8 @@ function parseInspect(raw) {
   window.containerIdMap = {};
 
   // Construire la carte compose: nom → métadonnées
-  window.composeMap = {};
+  window.composeMap   = {};
+  window.composeIndex = {};  // projet → [noms de containers]
   data.forEach(function(c) {
     var name = (c.Name || '').replace(/^\//, '');
     if (c.compose && c.compose.project) {
